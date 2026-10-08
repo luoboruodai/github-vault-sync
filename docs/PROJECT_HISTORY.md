@@ -93,6 +93,15 @@ pnpm build
 4. 公共仓库只推本项目从零开始的代码历史，不把用户私有 Vault Git 历史当作此仓库历史；确认公开可见性后，再上传源码与公开安全文档。
 5. 手动下载 ZIP，解压到测试 Vault 的 `.obsidian/plugins/github-vault-sync/`，重启 Obsidian 实测登录、预览、冲突和密文恢复。发布前后的屏幕视觉 QA 需要在测试 Vault 完成，勿用个人 Vault 截图上传公开仓库。
 
+## 5.1 首版实际发布与公开验证（2026-10-08）
+
+- 项目源码仓库：公开 `luoboruodai/github-vault-sync`，与存放笔记的**私有**仓库完全分开。现有细粒度 GitHub CLI PAT 可管理原笔记仓库，但不能创建新仓库（GraphQL 和 REST 都返回 403）；用户在浏览器中创建空的 Public 项目仓库后，令牌对新仓库显示写入权限。后续开发切勿借此扩大原私有 Vault 仓库可见性。
+- 发布前只暂存 43 个明确允许的项目文件；对候选内容比对真实 PAT、恢复密钥、本机 Vault 路径、私人会话 ID 与敏感扩展名，均未发现泄漏。`node_modules/`、旧原型 `dist/`、本机续接备忘及根目录生成的 `main.js` 未进入公开提交。Release 用的 `main.js` 单独放在 `releases/v0.1.0/`。
+- 在公开空仓库上以非强制方式一次性原子推送 `main` 与带注释的 `v0.1.0` Tag；源码发行提交为 `6d8ef28fddbbd003e45f46d6fc60f2af9a3d9640`。Git HTTPS URL 不含令牌，Git 操作通过当前 GitHub CLI credential helper 获取凭据，而非改写用户全局 Git 配置。
+- GitHub Release `v0.1.0` 为非草稿、非预发布，附有可直接解压安装的 ZIP、`main.js`、`manifest.json`、`styles.css`、双语 README、脱敏交接文档与 `SHA256SUMS`。从**未登录的 HTTP 请求**下载 ZIP 返回 200，下载字节与本地发行包一致；该 ZIP 的 SHA-256 为 `0424601665053f1f692aada85cca6cfa743eb595613f244ca03af8932b797921`，其中 `manifest.json` 版本为 `0.1.0`。
+- GitHub Release 地址为 `https://github.com/luoboruodai/github-vault-sync/releases/tag/v0.1.0`。公开项目 doc 是脱敏的结构化对话时间线，不是逐字会话导出；当前个人 Vault 已安装的内部 `0.4.0` 仍保持原样，未因公开首发而“降级”。
+- **尚待仓库所有者决定**：若希望其他人合法再分发或二次开发源码，应另行选定并加入明确的开源许可证；发布任务没有擅自替用户授予 MIT 等法律许可。
+
 ## 6. 已知边界与后续开发建议
 
 - Git LFS 对象大小、额度、网络环境会影响初次上传；进度在无 Git/LFS 对象计数时无法准确报字节百分比。
