@@ -1,9 +1,0 @@
-{
-  "id": "github-vault-sync",
-  "name": "GitHub Vault Sync",
-  "version": "0.1.0",
-  "minAppVersion": "1.13.0",
-  "description": "Safe GitHub and Git LFS synchronization for Obsidian desktop vaults.",
-  "author": "GitHub Vault Sync contributors",
-  "isDesktopOnly": true
-}

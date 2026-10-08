@@ -4,7 +4,7 @@
 
 ## 0. 仓库定位与版本说明
 
-- **此公开仓库**：插件源码、测试、英文/中文 README、公开开发记录，以及 `releases/v0.1.0/` 中可下载的无凭据安装包。
+- **此公开仓库**：插件源码、测试、英文/中文 README、公开开发记录，以及 `releases/github-vault-sync-0.1.0.zip` 无凭据安装包。
 - **用户自己的私有仓库**：Obsidian Vault 的 Markdown、附件及加密配置。插件强制要求此笔记数据仓库为私有；绝不应把笔记或凭据放进公开插件项目仓库。
 - 项目先以内部原型版本号 `0.1.x → 0.2.x → 0.3.x → 0.4.0` 迭代；应用户要求，以现有功能基线重新编号为**第一个公开发行版 v0.1.0**。发布资产 `manifest.json`、`package.json`、`versions.json`、Tag 和 ZIP 都应一致。内部已安装的 `0.4.0` 与公开首版 `0.1.0` 的编号并非“升级”关系，不能依赖 Obsidian 按版本号自动覆盖；不要为了首版发布无故替换正在工作的 Vault 插件。
 
@@ -88,8 +88,8 @@ pnpm build
 首版发布时：
 
 1. `manifest.json`、`package.json`、`versions.json` 一致为 `0.1.0`，最低 Obsidian 版本 `1.13.0`；Tag 用 `v0.1.0`。
-2. 安装包仅含 `github-vault-sync/{main.js,manifest.json,styles.css,README.md,README.zh-CN.md}`；独立资产可同时附加 GitHub Release，方便手动安装或其他工具使用。
-3. 打包存放 `releases/v0.1.0/`，写双语发布说明与 SHA-256；GitHub Release 亦上传相同资产。构建产物不能夹带本地配置或私钥。
+2. 安装包仅含 `github-vault-sync/{main.js,manifest.json,styles.css,README.md,README.zh-CN.md}`；用户后续要求 GitHub Release 的手动附件只有这一个 ZIP，若未来申请 Obsidian 社区目录/BRAT，应重新核对其是否要求单独的发行文件。
+3. 单一发行包存放 `releases/github-vault-sync-0.1.0.zip`；双语发布说明单独留在 `docs/` 并写入 GitHub Release 正文。构建产物不能夹带本地配置或私钥。
 4. 公共仓库只推本项目从零开始的代码历史，不把用户私有 Vault Git 历史当作此仓库历史；确认公开可见性后，再上传源码与公开安全文档。
 5. 手动下载 ZIP，解压到测试 Vault 的 `.obsidian/plugins/github-vault-sync/`，重启 Obsidian 实测登录、预览、冲突和密文恢复。发布前后的屏幕视觉 QA 需要在测试 Vault 完成，勿用个人 Vault 截图上传公开仓库。
 
@@ -101,6 +101,12 @@ pnpm build
 - GitHub Release `v0.1.0` 为非草稿、非预发布，附有可直接解压安装的 ZIP、`main.js`、`manifest.json`、`styles.css`、双语 README、脱敏交接文档与 `SHA256SUMS`。从**未登录的 HTTP 请求**下载 ZIP 返回 200，下载字节与本地发行包一致；该 ZIP 的 SHA-256 为 `0424601665053f1f692aada85cca6cfa743eb595613f244ca03af8932b797921`，其中 `manifest.json` 版本为 `0.1.0`。
 - GitHub Release 地址为 `https://github.com/luoboruodai/github-vault-sync/releases/tag/v0.1.0`。公开项目 doc 是脱敏的结构化对话时间线，不是逐字会话导出；当前个人 Vault 已安装的内部 `0.4.0` 仍保持原样，未因公开首发而“降级”。
 - **尚待仓库所有者决定**：若希望其他人合法再分发或二次开发源码，应另行选定并加入明确的开源许可证；发布任务没有擅自替用户授予 MIT 等法律许可。
+
+## 5.2 后续发行资产精简（2026-10-08）
+
+用户反馈 GitHub Release 同时列出八个独立资产会误导下载者，要求“只下载一个 ZIP 即可安装”。据此将新版安装包内明确整合 `main.js`、`manifest.json`、`styles.css` 和中英文说明；仓库 `releases/` 最新 `main` 分支只保留 `github-vault-sync-0.1.0.zip`，双语发布说明转入 `docs/`，README 同步明确系统 Git/Git LFS 仍需单独安装。GitHub Release 的手动上传资产仅保留 ZIP，其它手动资产删除；GitHub 自动生成的两个源码压缩包属于平台默认项，**不能删，也不能当插件 ZIP 使用**（源码根目录忽略构建的 `main.js`）。
+
+已公开的 `v0.1.0` Tag 是发布时快照，不会为了精简文件夹而强制移动；因此从 Tag 自动生成的 GitHub 源码 ZIP 仍反映当时的旧目录。`main` 分支及可安装 Release ZIP 是后续维护的单包布局。项目若将来正式进入 Obsidian 社区目录，必须重新评估官方对 GitHub Release 单独 `main.js`/`manifest.json`/`styles.css` 的要求；当前 ZIP-only 发布针对**手动解压安装**。 精简后 ZIP 的 SHA-256 为 `c5768e674ad6db7674b23827ca63a4e725b1cc65cbdf092d7f81288ec95ace38`；Release 正文提供校验值，不再额外上传校验文件。
 
 ## 6. 已知边界与后续开发建议
 

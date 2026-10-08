@@ -16,11 +16,14 @@ This is the **first public release** (v0.1.0), packaged from the existing local 
 
 **Install**: extract `github-vault-sync-0.1.0.zip` into `<Vault>/.obsidian/plugins/`, enable the plugin and back up your vault first. Requires Obsidian desktop 1.13.0+, Git and Git LFS when syncing matching attachments. See `README.md` inside the ZIP or the repository root.
 
-## Assets
+## 唯一安装资产 / Single install asset
 
-- `github-vault-sync-0.1.0.zip` — ready-to-install archive with folder `github-vault-sync/`.
-- `main.js`, `manifest.json`, `styles.css` — standalone assets for manual install or supported plugin managers.
-- `PROJECT_HISTORY.md` — sanitized development conversation and architecture handoff.
-- `SHA256SUMS` — checksums for verifying downloads.
+- `github-vault-sync-0.1.0.zip` — 唯一需要下载的插件安装包，内部包含 `github-vault-sync/manifest.json`、`main.js`、`styles.css`、中英文安装说明；解压到 `<Vault>/.obsidian/plugins/`，重启后启用。无需再下载其他 Release 资产。电脑上仍需已有 Git，按附件规则使用 Git LFS 时仍需安装 Git LFS。
+- GitHub 自动显示的 **Source code (zip/tar.gz)** 无法手动删除，且源码包不含项目根目录的构建产物 `main.js`，请勿把它当作插件安装包。
 
-No individual Vault data, unencrypted plugin credentials, recovery key, or private development conversation is shipped.
+- `github-vault-sync-0.1.0.zip` is the **only manually uploaded release asset**. It includes `manifest.json`, `main.js`, `styles.css`, and English/Chinese setup instructions under one `github-vault-sync/` folder. Extract into `<Vault>/.obsidian/plugins/`, restart Obsidian, and enable the plugin. No other Release downloads, Node.js, or pnpm are needed for installation. Git and (for matching attachments) Git LFS are still operating-system prerequisites.
+- GitHub-generated **Source code (zip/tar.gz)** links cannot be removed and are **not** plugin installers: the source tree does not contain the compiled root `main.js`.
+
+ZIP SHA-256 / 安装包 SHA-256：`c5768e674ad6db7674b23827ca63a4e725b1cc65cbdf092d7f81288ec95ace38`。
+
+No vault notes, plaintext credentials, recovery keys, or private development conversations are shipped.

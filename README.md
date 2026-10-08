@@ -7,7 +7,7 @@
 ## Install the v0.1.0 release
 
 1. Back up your Obsidian vault. Install Git; install Git LFS before syncing images or other attachments matched by the plugin's LFS rules.
-2. Open this project's GitHub **Releases** page and download `github-vault-sync-0.1.0.zip`. The same ZIP and standalone assets are archived in [`releases/v0.1.0/`](releases/v0.1.0/).
+2. Open this project's GitHub **Releases** page and download `github-vault-sync-0.1.0.zip`. The **only manually uploaded release asset** is this ZIP; the same file is kept in [`releases/github-vault-sync-0.1.0.zip`](releases/github-vault-sync-0.1.0.zip). GitHub’s automatic “Source code (zip/tar.gz)” downloads are **not** installable plugin bundles because the project root omits the compiled `main.js`.
 3. Extract the ZIP into `<Vault>/.obsidian/plugins/`. The resulting files must be:
 
    ```text
@@ -16,7 +16,7 @@
    <Vault>/.obsidian/plugins/github-vault-sync/styles.css
    ```
 
-   Avoid an extra nested `github-vault-sync/github-vault-sync/` directory. The ZIP contains no tokens, recovery keys, or personal vault data.
+   Avoid an extra nested `github-vault-sync/github-vault-sync/` directory. The ZIP already contains every plugin file and bilingual setup instructions: no separate Release downloads, Node.js, or pnpm are needed for manual installation. Git and, where applicable, Git LFS remain separate **system prerequisites**. The ZIP contains no tokens, recovery keys, or personal vault data.
 4. Restart Obsidian. In **Settings → Community plugins**, enable **GitHub Vault Sync**. Requires Obsidian desktop **1.13.0+**; mobile Obsidian is not supported.
 
 If you already use a local pre-release labeled `0.4.0`, the public `0.1.0` is the **first public release of the same project, not a higher-version update**. You need not replace your working installation merely to download the public package. Back up your vault before any manual replacement and leave local `data.json` in place.
@@ -50,7 +50,7 @@ pnpm test
 pnpm build
 ```
 
-The build creates `main.js` in the project root; only `manifest.json`, `main.js`, and `styles.css` belong in an installed plugin folder. For the ready-to-install package use [Releases](releases/v0.1.0/) instead. See [the developer handoff](docs/PROJECT_HISTORY.md) for architecture, design decisions, tests, and the public-safe development conversation timeline.
+The build creates `main.js` in the project root; only `manifest.json`, `main.js`, and `styles.css` belong in an installed plugin folder. For the ready-to-install package use the single [release ZIP](releases/github-vault-sync-0.1.0.zip) instead. See [the developer handoff](docs/PROJECT_HISTORY.md) for architecture, design decisions, tests, and the public-safe development conversation timeline.
 
 ## Security note
 
