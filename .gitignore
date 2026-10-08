@@ -1,0 +1,18 @@
+# Developer tools and generated local builds
+node_modules/
+/main.js
+*.js.map
+coverage/
+.vitest/
+dist/
+
+# Local handoff and credentials must never enter the public GitHub repository
+private/
+.env
+.env.*
+*.key
+*.pem
+.npmrc
+.netrc
+.pypirc
+.DS_Store

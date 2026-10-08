@@ -1,0 +1,19 @@
+{
+  "name": "github-vault-sync",
+  "version": "0.1.0",
+  "description": "Safe GitHub-backed synchronization for Obsidian desktop vaults.",
+  "private": true,
+  "scripts": {
+    "build": "node esbuild.config.mjs production",
+    "dev": "node esbuild.config.mjs development",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "esbuild": "^0.25.0",
+    "obsidian": "^1.8.7",
+    "typescript": "^5.7.2",
+    "vitest": "^3.0.5"
+  }
+}
