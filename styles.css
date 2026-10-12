@@ -905,3 +905,41 @@
 @media (max-width: 700px) {
   .github-vault-sync-summary-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+/* Thino-inspired brand row: compact title, muted version, right-aligned state. */
+.github-vault-sync-brand {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+.github-vault-sync-brand-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  color: var(--interactive-accent);
+}
+.github-vault-sync-brand-icon svg { width: 25px; height: 25px; }
+.github-vault-sync-brand h2 {
+  margin: 0;
+  color: var(--text-normal);
+  font-size: var(--font-ui-large) !important;
+  font-weight: var(--font-semibold) !important;
+  line-height: 1.2;
+}
+.github-vault-sync-version {
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+}
+.github-vault-sync-brand .github-vault-sync-health { margin-left: auto; }
+.github-vault-sync-settings-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.github-vault-sync-settings-content > .github-vault-sync-card {
+  width: 100%;
+}

@@ -3,6 +3,7 @@ import {
   Modal,
   Notice,
   TFile,
+  setIcon,
   Plugin,
   PluginSettingTab,
   Setting
@@ -620,11 +621,8 @@ export default class GithubVaultSyncPlugin extends Plugin {
   }
 }
 
-type SettingsSection = 'sync' | 'privacy' | 'account' | 'advanced';
-
 class GithubVaultSyncSettingTab extends PluginSettingTab {
   private unsubscribe?: () => void;
-  private activeSection: SettingsSection = 'sync';
 
   constructor(app: App, private readonly plugin: GithubVaultSyncPlugin) {
     super(app, plugin);
@@ -638,37 +636,23 @@ class GithubVaultSyncSettingTab extends PluginSettingTab {
     containerEl.addClass('github-vault-sync-settings-page');
 
     const hero = containerEl.createDiv({ cls: 'github-vault-sync-hero' });
-    const heroTitle = hero.createDiv({ cls: 'github-vault-sync-hero-title' });
-    heroTitle.createEl('h2', { text: 'GitHub Vault Sync' });
-    const statusBadge = heroTitle.createSpan({ cls: 'github-vault-sync-health', text: healthLabel(this.plugin.engine.getSnapshot().health) });
+    const brand = hero.createDiv({ cls: 'github-vault-sync-brand' });
+    const brandIcon = brand.createSpan({ cls: 'github-vault-sync-brand-icon' });
+    setIcon(brandIcon, 'git-branch');
+    brand.createEl('h2', { text: 'GitHub Vault Sync' });
+    brand.createSpan({ cls: 'github-vault-sync-version', text: `v${this.plugin.manifest.version}` });
+    const statusBadge = brand.createSpan({ cls: 'github-vault-sync-health', text: healthLabel(this.plugin.engine.getSnapshot().health) });
     statusBadge.dataset.health = this.plugin.engine.getSnapshot().health;
     hero.createEl('p', { text: this.plugin.settings.repo
       ? `${this.plugin.settings.repo.owner}/${this.plugin.settings.repo.name} · ${this.plugin.settings.branch} · ${this.plugin.settings.repo.private ? '私有仓库' : '仓库'}`
       : '尚未连接同步仓库' });
     hero.createEl('small', { text: '先检查本机与仓库差异，再确认同步；不会绕过确认自动上传。' });
 
-    const tabs = containerEl.createDiv({ cls: 'github-vault-sync-tabs', attr: { role: 'tablist' } });
-    const sections: Array<[SettingsSection, string]> = [
-      ['sync', '同步'], ['privacy', '隐私与恢复'], ['account', '账户与仓库'], ['advanced', '高级设置']
-    ];
-    for (const [key, label] of sections) {
-      const tab = tabs.createEl('button', { cls: 'github-vault-sync-tab', text: label });
-      tab.type = 'button';
-      tab.setAttribute('role', 'tab');
-      tab.setAttribute('aria-selected', String(this.activeSection === key));
-      tab.toggleClass('is-active', this.activeSection === key);
-      tab.addEventListener('click', () => {
-        if (this.activeSection === key) return;
-        this.activeSection = key;
-        this.display();
-      });
-    }
-
     const content = containerEl.createDiv({ cls: 'github-vault-sync-settings-content' });
-    if (this.activeSection === 'sync') this.renderSyncSection(content, statusBadge);
-    if (this.activeSection === 'privacy') this.renderPrivacySection(content);
-    if (this.activeSection === 'account') this.renderAccountSection(content);
-    if (this.activeSection === 'advanced') this.renderAdvancedSection(content);
+    this.renderSyncSection(content, statusBadge);
+    this.renderPrivacySection(content);
+    this.renderAccountSection(content);
+    this.renderAdvancedSection(content);
   }
 
   private card(container: HTMLElement, title: string, description?: string): HTMLElement {
