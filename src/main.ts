@@ -61,27 +61,49 @@ function healthLabel(health: SyncHealth): string {
 
 function renderSyncSummary(container: HTMLElement, snapshot: SyncSnapshot): void {
   container.empty();
-  const phase = container.createDiv({ cls: 'github-vault-sync-summary-title' });
+  container.dataset.health = snapshot.health;
+  container.dataset.phase = snapshot.phase;
+
+  const active = ['checking', 'scanning', 'staging', 'fetching', 'uploading', 'pulling', 'merging'].includes(snapshot.phase);
   const synced = snapshot.difference && snapshot.difference.differingPaths === 0 &&
     (snapshot.phase === 'completed' || snapshot.phase === 'idle');
-  phase.setText(synced ? `本机与仓库一致 · ${snapshot.difference?.totalPaths ?? 0} 个文件`
-    : snapshot.progressDetail || snapshot.message);
-  if (snapshot.phase === 'staging' || snapshot.phase === 'uploading' || snapshot.phase === 'scanning' || snapshot.phase === 'fetching') {
+  const title = synced
+    ? `本机与仓库一致 · ${snapshot.difference?.totalPaths ?? 0} 个文件`
+    : snapshot.progressDetail || snapshot.message;
+  const state = container.createDiv({ cls: 'github-vault-sync-summary-state' });
+  const dot = state.createSpan({ cls: 'github-vault-sync-summary-dot' });
+  dot.setAttribute('aria-hidden', 'true');
+  state.createEl('strong', { cls: 'github-vault-sync-summary-title', text: title });
+  if (active) state.createEl('span', { cls: 'github-vault-sync-summary-live', text: '进行中' });
+
+  if (snapshot.difference) {
+    const diff = snapshot.difference;
+    const metrics = container.createDiv({ cls: 'github-vault-sync-summary-metrics' });
+    for (const [label, value] of [
+      ['本机变化', String(diff.localChanged)],
+      ['仓库变化', String(diff.remoteChanged)],
+      ['文件差异', `${diff.differingPaths}/${diff.totalPaths}`],
+      ['差异率', `${diff.differencePercent}%`]
+    ] as const) {
+      const item = metrics.createDiv({ cls: 'github-vault-sync-summary-metric' });
+      item.createEl('span', { text: label });
+      item.createEl('strong', { text: value });
+    }
+    container.createEl('small', { cls: 'github-vault-sync-summary-caption',
+      text: `按文件路径统计 · 最近检查 ${formatDateTime(diff.checkedAt)}` });
+  } else if (!active) {
+    container.createEl('p', { cls: 'github-vault-sync-summary-empty',
+      text: '尚未完成一次本机与仓库检查。点击“预览并同步”开始。' });
+  }
+
+  if (active) {
     const progress = document.createElement('progress');
     progress.className = 'github-vault-sync-progress';
     progress.max = 100;
     if (snapshot.progress !== undefined) progress.value = snapshot.progress;
     progress.setAttribute('aria-label', snapshot.progressDetail || '同步进行中');
     container.appendChild(progress);
-    if (snapshot.progress !== undefined) container.createEl('small', { text: `当前阶段 ${snapshot.progress}%` });
-  }
-  if (snapshot.difference) {
-    const diff = snapshot.difference;
-    if (!synced) {
-      container.createEl('p', { cls: 'setting-item-description',
-        text: `本地变化 ${diff.localChanged} · 仓库变化 ${diff.remoteChanged} · 差异 ${diff.differingPaths}/${diff.totalPaths} 个文件（${diff.differencePercent}%）` });
-      container.createEl('small', { text: '按文件路径统计，不是笔记文字相似度。' });
-    }
+    if (snapshot.progress !== undefined) container.createEl('small', { cls: 'github-vault-sync-progress-label', text: `当前阶段 ${snapshot.progress}%` });
   }
   if (snapshot.encryptedNeedsRestore) {
     container.createEl('p', { cls: 'github-vault-sync-error-text',
@@ -245,6 +267,7 @@ export default class GithubVaultSyncPlugin extends Plugin {
       this.statusLabel.setText(`GitHub Sync · ${healthLabel(snapshot.health)}`);
       this.statusLabel.setAttribute('aria-label', snapshot.message);
       this.statusBar.setAttribute('aria-label', snapshot.message);
+      this.statusBar.dataset.health = snapshot.health;
       this.statusBar.toggleClass('github-vault-sync-error', snapshot.health === 'error');
       this.statusBar.toggleClass('github-vault-sync-conflict', snapshot.health === 'conflicts');
       this.updateCurrentNoteButton();
