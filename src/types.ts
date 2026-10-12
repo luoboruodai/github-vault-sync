@@ -150,6 +150,22 @@ export interface PendingMerge {
   sessionFolder: string;
 }
 
+export interface InitialBindingPreview {
+  remoteExists: boolean;
+  remoteSha: string | null;
+  localFiles: number;
+  remoteFiles: number;
+  localOnly: number;
+  remoteOnly: number;
+  identicalMarkdown: number;
+  differingMarkdown: string[];
+  differingConfig: number;
+  overlappingAttachments: number;
+  sameNameDifferentFolder: Array<{ name: string; local: string; remote: string }>;
+  structuralConflicts: string[];
+  warnings: string[];
+}
+
 export interface SyncResult {
   ok: boolean;
   message: string;

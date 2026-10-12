@@ -8,6 +8,7 @@ import {
   FileChange,
   GithubVaultSyncSettings,
   GitChangeEntry,
+  InitialBindingPreview,
   PendingMerge,
   RepoBinding,
   SyncDifference,
@@ -21,6 +22,8 @@ import {
 import { GitService, GitTransferProgress } from './git';
 import { ENCRYPTED_BUNDLE, prepareEncryptedBundle, restoreEncryptedBundle } from './encrypted-bundle';
 import { changedPaths, summarizeDifference } from './difference';
+import { CurrentNotePlan, fingerprintNoteFiles, selectNoteAndAttachments } from './current-note';
+import { compareVaultPaths } from './migration';
 import { categorizeChanges, isMarkdownNote } from './sync-preview';
 import { ensureConflictDirectory, localExcludeEntries, readSyncPolicy, writeSyncPolicy } from './policy';
 import {
@@ -210,8 +213,88 @@ export class SyncEngine {
     await this.git.writeLocalExclude(localExcludeEntries(this.settings), previousPolicy?.excludePatterns ?? []);
   }
 
-  async configureRepository(binding: RepoBinding, direction: 'local' | 'remote'): Promise<SyncResult> {
-    this.settings.repo = { ...binding, branch: this.settings.branch || binding.branch || 'main' };
+  /** Migration preflight: note contents are compared, but user notes are not changed. */
+  async inspectInitialBinding(binding: RepoBinding): Promise<InitialBindingPreview> {
+    if (!binding.private) throw new Error('Only a private Vault repository can be bound');
+    const existing = await this.git.getRemoteUrl();
+    if (existing && existing !== binding.remoteUrl && await this.git.hasHead()) {
+      throw new Error('This Vault already belongs to another Git remote. Use a fresh Vault instead of switching its origin.');
+    }
+    const scan = await scanVault(this.vaultPath, this.settings);
+    this.validateScan(scan);
+    await this.git.init(binding.branch);
+    await this.git.setRemote(binding);
+    const remoteExists = await this.git.remoteBranchExists(binding.branch);
+    if (!remoteExists) {
+      return { remoteExists: false, remoteSha: null, localFiles: scan.included.length, remoteFiles: 0,
+        localOnly: scan.included.length, remoteOnly: 0, identicalMarkdown: 0, differingMarkdown: [],
+        differingConfig: 0, overlappingAttachments: 0, sameNameDifferentFolder: [], structuralConflicts: [],
+        warnings: [...scan.warnings] };
+    }
+    await this.git.fetch(binding.branch);
+    const remoteRef = `origin/${binding.branch}`;
+    const remoteSha = await this.git.refSha(remoteRef);
+    if (!remoteSha) throw new Error('Could not read the remote branch after fetching');
+    const remote = await this.validatedRemotePaths(remoteRef);
+    const local = new Map(scan.included.map((file) => [file.path, file]));
+    const overlap = compareVaultPaths(local.keys(), remote);
+    const differingMarkdown: string[] = [];
+    let identicalMarkdown = 0;
+    let differingConfig = 0;
+    let overlappingAttachments = 0;
+    for (const rel of overlap.shared) {
+      if (isMarkdownNote(rel)) {
+        const localBytes = await fs.readFile(local.get(rel)!.absolutePath);
+        const remoteBytes = await this.git.showFile(remoteRef, rel);
+        if (localBytes.equals(remoteBytes)) identicalMarkdown++;
+        else differingMarkdown.push(rel);
+      } else if (rel.startsWith('.obsidian/') || rel === ENCRYPTED_BUNDLE) differingConfig++;
+      else overlappingAttachments++;
+    }
+    const warnings = [...scan.warnings];
+    if (overlap.structuralConflicts.length) warnings.push('Some paths collide by case or file/folder layout across devices; rename or use a separate Vault.');
+    if (overlap.sameNameDifferentFolder.length) warnings.push('Notes in different folders share a title. Git keeps them separate, but Obsidian short links may be ambiguous.');
+    if (differingMarkdown.length) warnings.push(`${differingMarkdown.length} same-path Markdown note(s) differ in content. Both versions require a choice; timestamps are not trusted.`);
+    if (differingConfig || overlappingAttachments) warnings.push('Overlapping plugin config or attachment paths require file-level review; no automatic overwrite.');
+    return { remoteExists: true, remoteSha, localFiles: local.size, remoteFiles: remote.size,
+      localOnly: overlap.localOnly.length, remoteOnly: overlap.remoteOnly.length,
+      identicalMarkdown, differingMarkdown, differingConfig, overlappingAttachments,
+      sameNameDifferentFolder: overlap.sameNameDifferentFolder,
+      structuralConflicts: overlap.structuralConflicts, warnings };
+  }
+
+  /** Remote-first creates a separate Obsidian Vault; it never empties this Vault. */
+  async cloneRemoteAsSeparateVault(binding: RepoBinding, expectedSha: string): Promise<SyncResult> {
+    if (!binding.private || !expectedSha) throw new Error('A verified private remote preview is required');
+    let destination: string | undefined;
+    let preserveCopy = false;
+    try {
+      await this.git.fetch(binding.branch);
+      if (await this.git.refSha(`origin/${binding.branch}`) !== expectedSha) {
+        throw new Error('The remote branch changed after preview. Inspect its latest notes before creating a copy.');
+      }
+      const parent = path.dirname(this.vaultPath);
+      const prefix = path.join(parent, `${path.basename(this.vaultPath)}-GitHub-copy-`);
+      destination = await fs.mkdtemp(prefix);
+      await this.git.run(['clone', '--single-branch', '--branch', binding.branch, binding.remoteUrl, destination],
+        { cwd: parent, timeoutMs: 3 * 60 * 60 * 1000 });
+      const copied = (await this.git.text(['rev-parse', 'HEAD'], { cwd: destination })).trim();
+      if (copied !== expectedSha) {
+        preserveCopy = true;
+        throw new Error(`The remote changed during cloning. A separate copy exists at ${destination}; inspect it before use.`);
+      }
+      return { ok: true, message: `Created a separate remote Vault: ${destination}. Open it separately in Obsidian; the current Vault was not replaced.`,
+        changedFiles: [], conflicts: [], warnings: ['The private plugin data.json and recovery key must be installed/restored on the other device separately.'] };
+    } catch (error) {
+      if (destination && !preserveCopy) await fs.rm(destination, { recursive: true, force: true });
+      return this.fail(error);
+    }
+  }
+
+  async configureRepository(binding: RepoBinding, direction: 'local' | 'remote', expectedRemoteSha?: string | null): Promise<SyncResult> {
+    if (direction === 'remote') throw new Error('Remote-first now creates a separate Vault. Use cloneRemoteAsSeparateVault instead.');
+    if (!binding.private) throw new Error('Only a private Vault repository may be bound');
+    this.settings.repo = { ...binding, branch: binding.branch || this.settings.branch || 'main' };
     this.settings.branch = this.settings.repo.branch;
     this.settings.lastError = '';
     await this.persist();
@@ -224,6 +307,9 @@ export class SyncEngine {
       await this.ensureRepo(this.settings.repo);
       await this.ensureDependencies(scan.lfsFiles.length > 0 || scan.included.some((file) => file.size > 100 * 1024 * 1024));
       const remoteExists = await this.git.remoteBranchExists(this.settings.branch);
+      if (expectedRemoteSha !== undefined && remoteExists !== Boolean(expectedRemoteSha)) {
+        throw new Error('The remote branch changed after the initial preview. Review the new state before uploading.');
+      }
       if (!remoteExists) {
         await writeSyncPolicy(this.vaultPath, this.settings);
         const committed = await this.git.commitWorkingTree('Initialize vault sync');
@@ -237,17 +323,11 @@ export class SyncEngine {
       }
 
       await this.git.fetch(this.settings.branch);
-      await this.validatedRemotePaths(`origin/${this.settings.branch}`);
-      if (direction === 'remote') {
-        const backup = await this.backupIncludedFiles(scan);
-        await this.git.cleanIncludedFiles(scan.included.map((file) => file.path));
-        await this.git.run(['checkout', '-B', this.settings.branch, `origin/${this.settings.branch}`]);
-        const sha = await this.git.headSha();
-        this.settings.lastRemoteSha = sha ?? '';
-        this.settings.lastStatus = 'synced';
-        await this.persist();
-        return this.complete(`Restored remote vault. Local backup: ${backup}`, scan.warnings);
+      const fetchedSha = await this.git.refSha(`origin/${this.settings.branch}`);
+      if (expectedRemoteSha !== undefined && fetchedSha !== expectedRemoteSha) {
+        throw new Error('The remote branch changed after the initial preview. Review its latest notes before uploading.');
       }
+      await this.validatedRemotePaths(`origin/${this.settings.branch}`);
 
       await writeSyncPolicy(this.vaultPath, this.settings);
       const committed = await this.git.commitWorkingTree('Initialize local vault sync');
@@ -257,20 +337,6 @@ export class SyncEngine {
     } catch (error) {
       return this.fail(error);
     }
-  }
-
-  private async backupIncludedFiles(scan: VaultScan): Promise<string> {
-    const parent = path.dirname(this.vaultPath);
-    const name = path.basename(this.vaultPath);
-    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const destination = path.join(parent, `${name} GitHub Vault Sync Backup ${stamp}`);
-    await ensureDirectory(destination);
-    for (const file of scan.included) {
-      const target = path.join(destination, file.path);
-      await ensureDirectory(path.dirname(target));
-      await fs.copyFile(file.absolutePath, target);
-    }
-    return destination;
   }
 
   private async reconcileAndPush(message: string, priority: SyncPriority = 'manual', approvedRemoteSha?: string): Promise<SyncResult> {
@@ -343,10 +409,22 @@ export class SyncEngine {
     this.update({ phase: 'merging', health: 'checking', message: 'Preparing file-level merge…', error: undefined });
     const remoteSha = (await this.git.refSha(remoteRef)) ?? '';
     const baseSha = await this.git.mergeBase('HEAD', remoteRef);
+    const structural = compareVaultPaths(await this.git.treePaths('HEAD'), await this.git.treePaths(remoteRef));
+    if (structural.structuralConflicts.length) {
+      throw new Error(`Repository path collisions require a separate Vault or rename: ${structural.structuralConflicts.slice(0, 8).join('; ')}`);
+    }
     const localPaths = await this.changedPathSet(baseSha, 'HEAD', true);
     const remotePaths = await this.changedPathSet(baseSha, remoteRef, true);
     const conflicts = new Set<string>();
-    for (const value of localPaths) if (remotePaths.has(value)) conflicts.add(value);
+    for (const value of localPaths) {
+      if (!remotePaths.has(value)) continue;
+      // Two independently created or edited paths with the exact same Git blob
+      // already agree. Treating them as conflicts causes needless manual work.
+      const localOid = await this.git.blobOid('HEAD', value);
+      const remoteOid = await this.git.blobOid(remoteRef, value);
+      if (localOid === remoteOid) continue;
+      conflicts.add(value);
+    }
 
     const localEntries = await this.mergeEntries(baseSha, 'HEAD');
     const remoteEntries = await this.mergeEntries(baseSha, remoteRef);
@@ -654,6 +732,104 @@ export class SyncEngine {
       }
     }
     return digest.digest('hex');
+  }
+
+  /** No global staging: a note and resolved attachments are the entire commit scope. */
+  async previewCurrentNote(notePath: string, resolvedAttachments: readonly string[] = []): Promise<CurrentNotePlan> {
+    if (!this.settings.repo?.private) throw new Error('Bind a private repository first');
+    if (this.settings.pendingMerge || await this.git.isMergeInProgress()) {
+      throw new Error('Resolve the unfinished Vault merge before syncing the current note');
+    }
+    const selectedPaths = selectNoteAndAttachments(notePath, resolvedAttachments);
+    await this.ensureRepo(this.settings.repo);
+    if (!(await this.git.hasHead())) throw new Error('This Vault has no local checkpoint. Use the Vault preview to bind it first.');
+    if (await this.git.hasStagedChanges()) throw new Error('Git already has staged changes. Use the full Vault preview first.');
+    await this.git.fetch(this.settings.branch);
+    const remoteRef = `origin/${this.settings.branch}`;
+    const remoteSha = await this.git.refSha(remoteRef);
+    const localHead = await this.git.headSha();
+    if (!remoteSha || localHead !== remoteSha) {
+      throw new Error('The Vault and GitHub have different commits. Review the full Vault first; a single-note upload must not hide remote changes.');
+    }
+    await this.validatedRemotePaths(remoteRef);
+    const scan = await scanVault(this.vaultPath, this.settings);
+    this.validateScan(scan);
+    const allowed = new Set(scan.included.map((file) => file.path));
+    for (const rel of selectedPaths) {
+      if (!allowed.has(rel)) throw new Error(`Current note or attachment was excluded by Vault preflight: ${rel}`);
+    }
+    const remoteHasNote = await this.git.pathExistsInRef(remoteRef, notePath);
+    const localContent = await fs.readFile(path.join(this.vaultPath, notePath));
+    const remoteNoteDifferent = !remoteHasNote || !(await this.git.showFile(remoteRef, notePath)).equals(localContent);
+    const status = (await this.git.status()).filter((entry) => selectedPaths.includes(entry.path) ||
+      Boolean(entry.oldPath && selectedPaths.includes(entry.oldPath)));
+    const changedPaths = new Set(status.map((entry) => entry.path));
+    if (remoteNoteDifferent) changedPaths.add(notePath);
+    for (const asset of selectedPaths.slice(1)) {
+      if (!(await this.git.pathExistsInRef(remoteRef, asset))) changedPaths.add(asset);
+    }
+    const fingerprint = await fingerprintNoteFiles(this.vaultPath, selectedPaths, localHead);
+    return { notePath, attachments: selectedPaths.filter((value) => value !== notePath), selectedPaths,
+      remoteSha, localHead, fingerprint, changedPaths: [...changedPaths].sort(),
+      remoteHasNote, remoteNoteDifferent, noteContent: localContent.toString('utf8').slice(0, 2000) };
+  }
+
+  async syncCurrentNote(approved: CurrentNotePlan): Promise<SyncResult> {
+    if (!this.settings.repo?.private) throw new Error('Bind a private repository first');
+    if (this.settings.pendingMerge) return this.conflictResult();
+    try {
+      if (!isMarkdownNote(approved.notePath) || approved.selectedPaths[0] !== approved.notePath &&
+        !approved.selectedPaths.includes(approved.notePath)) throw new Error('Invalid approved note scope');
+      await this.git.fetch(this.settings.branch);
+      const head = await this.git.headSha();
+      const remote = await this.git.refSha(`origin/${this.settings.branch}`);
+      if (remote !== approved.remoteSha || head !== approved.localHead || remote !== head) {
+        throw new Error('The Vault or GitHub changed after preview. Review the entire Vault again before uploading this note.');
+      }
+      if (await this.git.hasStagedChanges() || await this.git.isMergeInProgress()) {
+        throw new Error('An unfinished Git operation or staged files exist; this note was not uploaded.');
+      }
+      if (await fingerprintNoteFiles(this.vaultPath, approved.selectedPaths, head!) !== approved.fingerprint) {
+        throw new Error('The approved note or attachment changed. Preview it again before uploading.');
+      }
+      const scan = await scanVault(this.vaultPath, this.settings);
+      this.validateScan(scan);
+      const included = new Map(scan.included.map((file) => [file.path, file]));
+      for (const rel of approved.selectedPaths) {
+        if (!included.has(rel)) throw new Error(`Selected note or attachment is no longer safe: ${rel}`);
+      }
+      const assets = approved.attachments.map((rel) => included.get(rel)!);
+      if (assets.some((file) => file.isLfs)) {
+        await fs.access(path.join(this.vaultPath, '.gitattributes'));
+        await this.ensureDependencies(true);
+      } else {
+        await this.ensureDependencies(false);
+      }
+      if (!approved.changedPaths.length) {
+        const message = 'Current note is already up to date';
+        const remaining = (await this.git.status()).length > 0;
+        this.settings.lastStatus = remaining ? 'local-changes' : 'synced';
+        await this.persist();
+        this.update({ phase: 'idle', health: this.settings.lastStatus, message, difference: undefined });
+        return { ok: true, message, changedFiles: [], conflicts: [], warnings: [] };
+      }
+      this.update({ phase: 'staging', health: 'checking', progress: 0,
+        progressDetail: `只暂存 ${approved.selectedPaths.length} 个本次预览文件` });
+      await this.git.stageSelected(approved.selectedPaths);
+      if (!(await this.git.hasStagedChanges())) return this.complete('Current note is already up to date');
+      await this.git.commit(`Sync current note: ${approved.notePath}`);
+      await this.pushWithProgress(this.settings.branch);
+      this.settings.lastRemoteSha = await this.git.headSha() ?? '';
+      const remaining = (await this.git.status()).length > 0;
+      this.settings.lastStatus = remaining ? 'local-changes' : 'synced';
+      this.settings.lastError = '';
+      await this.persist();
+      const message = remaining ? 'Current note uploaded; other Vault changes remain local' : 'Current note uploaded';
+      this.update({ phase: 'completed', health: this.settings.lastStatus, message, difference: undefined,
+        changedFiles: [], progress: 100, progressDetail: message, error: undefined });
+      return { ok: true, message, changedFiles: approved.changedPaths.map((rel) =>
+        ({ path: rel, kind: isMarkdownNote(rel) ? 'modified' : 'binary' })), conflicts: [], warnings: [] };
+    } catch (error) { return this.fail(error); }
   }
 
   async previewSync(): Promise<SyncPreview> {

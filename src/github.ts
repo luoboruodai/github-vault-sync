@@ -64,7 +64,7 @@ export class GithubClient {
     const headers: Record<string, string> = {
       Accept: 'application/vnd.github+json',
       'X-GitHub-Api-Version': '2022-11-28',
-      'User-Agent': 'GitHub-Vault-Sync/0.1.0'
+      'User-Agent': 'GitHub-Vault-Sync/0.1.1'
     };
     if (options.auth !== false) headers.Authorization = `Bearer ${this.token}`;
     let body: string | undefined;
@@ -109,7 +109,7 @@ export class GithubClient {
       headers: {
         Accept: 'application/json',
         'Content-Type': 'application/x-www-form-urlencoded',
-        'User-Agent': 'GitHub-Vault-Sync/0.1.0'
+        'User-Agent': 'GitHub-Vault-Sync/0.1.1'
       },
       body: new URLSearchParams({
         client_id: clientId.trim(),
@@ -135,7 +135,7 @@ export class GithubClient {
         headers: {
           Accept: 'application/json',
           'Content-Type': 'application/x-www-form-urlencoded',
-          'User-Agent': 'GitHub-Vault-Sync/0.1.0'
+          'User-Agent': 'GitHub-Vault-Sync/0.1.1'
         },
         body: new URLSearchParams({ client_id: clientId.trim(), device_code: deviceCode.device_code, grant_type: 'urn:ietf:params:oauth:grant-type:device_code' }).toString(),
         throw: false

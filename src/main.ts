@@ -2,6 +2,8 @@ import {
   App,
   Modal,
   Notice,
+  MarkdownView,
+  TFile,
   Plugin,
   PluginSettingTab,
   Setting
@@ -12,12 +14,14 @@ import { ENCRYPTED_BUNDLE, generateRecoveryKey, inspectEncryptedBundle,
   validateRecoveryKey, writeRecoveryKeyFile } from './encrypted-bundle';
 import { GithubClient } from './github';
 import { SyncEngine } from './sync-engine';
+import { CurrentNotePlan, embeddedAttachmentPaths } from './current-note';
 import { isMarkdownNote } from './sync-preview';
 import {
   ConflictChoice,
   DEFAULT_EXCLUDE_PATTERNS,
   DEFAULT_SETTINGS,
   FileChange,
+  InitialBindingPreview,
   GithubVaultSyncSettings,
   RepoBinding,
   SyncHealth,
@@ -97,6 +101,8 @@ export default class GithubVaultSyncPlugin extends Plugin {
   settings: GithubVaultSyncSettings = { ...DEFAULT_SETTINGS, excludePatterns: [...DEFAULT_SETTINGS.excludePatterns], lfsPatterns: [...DEFAULT_SETTINGS.lfsPatterns] };
   engine!: SyncEngine;
   private statusBar!: HTMLElement;
+  private noteAction: HTMLElement | null = null;
+  private noteActionView: MarkdownView | null = null;
   private vaultPath = '';
   private actionRunning = false;
   private autoTimer: number | null = null;
@@ -133,6 +139,13 @@ export default class GithubVaultSyncPlugin extends Plugin {
     this.addCommand({ id: 'bind-repository', name: '创建或绑定同步仓库', callback: () => void this.bindRepository() });
     this.addCommand({ id: 'scan-changes', name: '扫描本地/远端变化', callback: () => void this.runAction('scan', () => this.engine.checkRemote()) });
     this.addCommand({ id: 'sync-now', name: '预览并同步笔记', callback: () => void this.syncNow() });
+    this.addCommand({ id: 'sync-current-note', name: '预览并同步当前笔记', icon: 'cloud-upload',
+      checkCallback: (checking) => {
+        const note = this.app.workspace.getActiveFile();
+        if (!note || !isMarkdownNote(note.path) || !this.settings.repo?.private || !this.settings.token) return false;
+        if (!checking) void this.previewActiveNote(note);
+        return true;
+      } });
     this.addCommand({ id: 'open-sync-center', name: '打开同步中心', callback: () => this.openSyncCenter() });
     this.addCommand({ id: 'check-dependencies', name: '重新检测 Git/Git LFS', callback: () => void this.checkDependencies() });
     this.addCommand({ id: 'restore-encrypted-settings', name: '恢复加密的插件配置', callback: () => void this.restorePrivateSettings() });
@@ -147,9 +160,15 @@ export default class GithubVaultSyncPlugin extends Plugin {
       this.scheduleAutoSync(file.path);
       this.scheduleAutoSync(previous);
     }));
+    this.registerEvent(this.app.workspace.on('active-leaf-change', () => this.updateActiveNoteAction()));
+    this.registerEvent(this.app.workspace.on('file-open', () => this.updateActiveNoteAction()));
+    this.app.workspace.onLayoutReady(() => this.updateActiveNoteAction());
     this.registerInterval(window.setInterval(() => void this.pollAutomaticSync(), 5 * 60 * 1000));
     this.register(() => {
       if (this.autoTimer !== null) window.clearTimeout(this.autoTimer);
+      this.noteAction?.remove();
+      this.noteAction = null;
+      this.noteActionView = null;
       this.snapshotListeners.clear();
     });
     window.setTimeout(() => {
@@ -159,6 +178,48 @@ export default class GithubVaultSyncPlugin extends Plugin {
 
   onunload(): void {
     // The Git operations are short-lived child processes; no persistent watcher is used.
+  }
+
+  private updateActiveNoteAction(): void {
+    const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+    if (this.noteActionView === view && this.noteAction?.isConnected &&
+      view?.file && isMarkdownNote(view.file.path)) return;
+    this.noteAction?.remove();
+    this.noteAction = null;
+    this.noteActionView = null;
+    if (!view?.file || !isMarkdownNote(view.file.path)) return;
+    const action = view.addAction('cloud-upload', '仅预览并同步此笔记及引用的附件', () => {
+      const current = view.file;
+      if (current && isMarkdownNote(current.path)) void this.previewActiveNote(current);
+    });
+    action.addClass('github-vault-sync-note-action');
+    action.setAttribute('aria-label', '仅同步当前笔记');
+    this.noteAction = action;
+    this.noteActionView = view;
+  }
+
+  getCurrentNote(): TFile | null {
+    const selected = this.app.workspace.getActiveViewOfType(MarkdownView)?.file ?? this.app.workspace.getActiveFile();
+    return selected && isMarkdownNote(selected.path) ? selected : null;
+  }
+
+  async previewActiveNote(note = this.getCurrentNote()): Promise<void> {
+    if (!note) { new Notice('请先在 Obsidian 打开一篇 Markdown 笔记。'); return; }
+    if (this.actionRunning) { new Notice('已有同步检查正在运行，请稍后。'); return; }
+    this.actionRunning = true;
+    try {
+      const embeds = this.app.metadataCache.getFileCache(note)?.embeds ?? [];
+      const linked = embeddedAttachmentPaths(note.path, embeds, (link, sourcePath) =>
+        this.app.metadataCache.getFirstLinkpathDest(link, sourcePath)?.path);
+      const plan = await this.engine.previewCurrentNote(note.path, linked);
+      new CurrentNoteModal(this.app, plan, async () => {
+        await this.runAction('current-note-sync', () => this.engine.syncCurrentNote(plan));
+      }, async () => { await this.syncNow(); }, async () => {
+        await this.openNoteComparison(note.path, plan.remoteSha);
+      }).open();
+    } catch (error) {
+      new Notice(`不能只同步这篇笔记：${error instanceof Error ? error.message : String(error)}。可打开全库预览处理。`, 11000);
+    } finally { this.actionRunning = false; }
   }
 
   async saveSensitiveSettings(): Promise<void> {
@@ -465,13 +526,18 @@ export default class GithubVaultSyncPlugin extends Plugin {
         } else {
           binding = await client.bindRepository(action.owner, action.name);
         }
-        const scan = await this.engine.scan();
-        const preview = new InitialBindingModal(this.app, binding, scan, async (direction) => {
-          preview.close();
-          const result = await this.runAction('bind-repository', () => this.engine.configureRepository(binding, direction));
+        const initial = await this.engine.inspectInitialBinding(binding);
+        new InitialBindingModal(this.app, binding, initial, async (direction) => {
+          if (direction === 'separate') {
+            if (!initial.remoteSha) return;
+            await this.runAction('clone-private-repository', () =>
+              this.engine.cloneRemoteAsSeparateVault(binding, initial.remoteSha!));
+            return;
+          }
+          const result = await this.runAction('bind-repository', () =>
+            this.engine.configureRepository(binding, 'local', initial.remoteSha));
           if (result && 'conflicts' in result && result.conflicts.length) this.openConflicts();
-        });
-        preview.open();
+        }).open();
       } catch (error) {
         new Notice(`仓库绑定失败：${error instanceof Error ? error.message : String(error)}`, 10000);
       }
@@ -540,21 +606,34 @@ class GithubVaultSyncSettingTab extends PluginSettingTab {
       ? `${this.plugin.settings.repo.owner}/${this.plugin.settings.repo.name} · ${this.plugin.settings.branch} · ${this.plugin.settings.repo.private ? '私有仓库' : '仓库'}`
       : '尚未连接同步仓库' });
     hero.createEl('small', { text: '先看笔记与配置差异，再选冲突优先方；未经确认不会上传。' });
+    const statusBadge = hero.createSpan({ cls: 'github-vault-sync-health', text: healthLabel(this.plugin.engine.getSnapshot().health) });
+    statusBadge.dataset.health = this.plugin.engine.getSnapshot().health;
 
     const overview = containerEl.createDiv({ cls: 'github-vault-sync-panel github-vault-sync-panel-main' });
-    overview.createEl('h3', { text: '笔记同步' });
+    overview.createEl('h3', { text: '常用操作' });
+    const selected = this.plugin.getCurrentNote();
     new Setting(overview)
-      .setName('同步前预览')
-      .setDesc('只读检查 Markdown、笔记附件和 Obsidian 配置；确认本机／仓库优先后再同步。')
-      .addButton((button) => button.setButtonText('预览并同步').setCta()
+      .setName('仅同步当前笔记')
+      .setDesc(selected ? `当前：${selected.path}；同时检查实际嵌入的附件，不提交其他笔记。` : '先在 Obsidian 中打开一篇 Markdown 笔记。')
+      .addButton((button) => button.setButtonText('预览此笔记').setCta()
+        .setDisabled(!selected || !this.plugin.settings.repo?.private || !this.plugin.settings.token)
+        .onClick(() => void this.plugin.previewActiveNote()));
+    new Setting(overview)
+      .setName('同步整个笔记库')
+      .setDesc('先比对 Markdown 与附件，再核对 Obsidian 配置；选择冲突优先方后才提交。')
+      .addButton((button) => button.setButtonText('预览整个库')
         .setDisabled(!this.plugin.settings.repo || !this.plugin.settings.token)
         .onClick(() => void this.plugin.syncNow()));
     const summary = overview.createDiv({ cls: 'github-vault-sync-summary' });
     renderSyncSummary(summary, this.plugin.engine.getSnapshot());
-    this.unsubscribe = this.plugin.subscribeSnapshot((snapshot) => renderSyncSummary(summary, snapshot));
+    this.unsubscribe = this.plugin.subscribeSnapshot((snapshot) => {
+      renderSyncSummary(summary, snapshot);
+      statusBadge.setText(healthLabel(snapshot.health));
+      statusBadge.dataset.health = snapshot.health;
+    });
     new Setting(overview)
       .setName('及时检查')
-      .setDesc('本地变更后防抖检查，另每 5 分钟检查远端；检测到变化会提醒你预览，不会自动上传。')
+      .setDesc('本地变更后与每 5 分钟只检查和提醒，绝不自动上传。')
       .addToggle((toggle) => toggle.setValue(this.plugin.settings.autoSyncEnabled)
         .onChange(async (value) => this.plugin.setAutoSyncEnabled(value)));
 
@@ -757,30 +836,131 @@ class RepositoryModal extends Modal {
     contentEl.empty();
     contentEl.createEl('h2', { text: '创建或绑定私有仓库' });
     new Setting(contentEl).setName('GitHub 用户名').addText((text) => text.setValue(this.owner).onChange((value) => { this.owner = value.trim(); }));
-    new Setting(contentEl).setName('仓库名').addText((text) => text.setValue(this.name).onChange((value) => { this.name = value.trim(); }));
-    new Setting(contentEl).addButton((button) => button.setButtonText('创建私有仓库').setCta().onClick(() => void this.onSubmit({ type: 'create', name: this.name }))).addButton((button) => button.setButtonText('绑定已有仓库').onClick(() => void this.onSubmit({ type: 'bind', owner: this.owner, name: this.name }))).addButton((button) => button.setButtonText('取消').onClick(() => this.close()));
+    new Setting(contentEl).setName('仓库名').setDesc('想保留旧库且不合并，请新建一个不同名字的私有仓库。').addText((text) => text.setValue(this.name).onChange((value) => { this.name = value.trim(); }));
+    new Setting(contentEl).addButton((button) => button.setButtonText('新建独立私有仓库').setCta().onClick(() => void this.onSubmit({ type: 'create', name: this.name }))).addButton((button) => button.setButtonText('绑定已有仓库').onClick(() => void this.onSubmit({ type: 'bind', owner: this.owner, name: this.name }))).addButton((button) => button.setButtonText('取消').onClick(() => this.close()));
   }
 
   onClose(): void { this.contentEl.empty(); }
 }
 
 class InitialBindingModal extends Modal {
-  constructor(app: App, private readonly binding: RepoBinding, private readonly scan: VaultScan, private readonly onSubmit: (direction: 'local' | 'remote') => Promise<void>) {
-    super(app);
+  private submitting = false;
+
+  constructor(app: App, private readonly binding: RepoBinding,
+    private readonly comparison: InitialBindingPreview,
+    private readonly onSubmit: (direction: 'local' | 'separate') => Promise<void>) { super(app); }
+
+  private async submit(direction: 'local' | 'separate'): Promise<void> {
+    if (this.submitting) return;
+    this.submitting = true;
+    this.close();
+    await this.onSubmit(direction);
   }
 
   onOpen(): void {
     const { contentEl } = this;
+    this.modalEl.addClass('github-vault-sync-wide-modal');
     contentEl.empty();
-    contentEl.createEl('h2', { text: '首次绑定预检' });
-    contentEl.createEl('p', { text: `${this.binding.owner}/${this.binding.name} · ${this.scan.files.length} 个本地文件 · ${formatBytes(this.scan.includedBytes)} 将参与同步。` });
-    if (this.scan.warnings.length) {
-      contentEl.createEl('h3', { text: '警告' });
-      const list = contentEl.createEl('ul');
-      for (const warning of this.scan.warnings.slice(0, 20)) list.createEl('li', { text: warning });
+    contentEl.addClass('github-vault-sync-initial-preview');
+    contentEl.createEl('h2', { text: '先确认新旧笔记库' });
+    contentEl.createEl('p', { text: `${this.binding.owner}/${this.binding.name} · ${this.binding.branch} · 私有仓库` });
+    contentEl.createEl('p', { cls: 'setting-item-description',
+      text: '本次预检可能会为后续 Git 操作建立或更新 Vault 内的 .git 元数据和远程地址，但不会提交、覆盖笔记或上传；取消后这些 Git 元数据可能保留。' });
+    const cards = contentEl.createDiv({ cls: 'github-vault-sync-preview-metrics' });
+    for (const [label, value] of [
+      ['本机文件', this.comparison.localFiles],
+      ['仓库文件', this.comparison.remoteFiles],
+      ['同路径但笔记内容不同', this.comparison.differingMarkdown.length],
+      ['笔记内容相同', this.comparison.identicalMarkdown]
+    ] as const) {
+      const card = cards.createDiv({ cls: 'github-vault-sync-preview-metric' });
+      card.createEl('strong', { text: String(value) }); card.createEl('span', { text: label });
     }
-    contentEl.createEl('p', { text: '继续前请选择初始方向。远端恢复会先备份本地纳入同步的文件；本地发布不会强制覆盖远端历史。' });
-    new Setting(contentEl).addButton((button) => button.setButtonText('以本地 Vault 为准').setCta().onClick(() => void this.onSubmit('local'))).addButton((button) => button.setButtonText('从远端恢复').onClick(() => void this.onSubmit('remote'))).addButton((button) => button.setButtonText('取消').onClick(() => this.close()));
+    if (!this.comparison.remoteExists) {
+      contentEl.createEl('p', { text: '仓库尚无提交。可以从本机首次上传，不需要与旧笔记合并。' });
+    } else {
+      contentEl.createEl('p', { text: `仅本机 ${this.comparison.localOnly} · 仅仓库 ${this.comparison.remoteOnly} · 插件/配置同路径 ${this.comparison.differingConfig} · 附件同路径 ${this.comparison.overlappingAttachments}` });
+      if (this.comparison.differingMarkdown.length) {
+        const list = contentEl.createEl('details', { cls: 'github-vault-sync-initial-list' });
+        list.open = true;
+        list.createEl('summary', { text: `同路径不同内容的笔记（${this.comparison.differingMarkdown.length}）：后续逐篇选择` });
+        const ul = list.createEl('ul');
+        for (const item of this.comparison.differingMarkdown.slice(0, 30)) ul.createEl('li', { text: item });
+        if (this.comparison.differingMarkdown.length > 30) ul.createEl('li', { text: '其余笔记需在合并冲突中心选择。' });
+      }
+      if (this.comparison.sameNameDifferentFolder.length) {
+        const list = contentEl.createEl('details', { cls: 'github-vault-sync-initial-list' });
+        list.createEl('summary', { text: `${this.comparison.sameNameDifferentFolder.length} 对同名但不同目录的笔记（路径不会被当作相同文件）` });
+        const ul = list.createEl('ul');
+        for (const pair of this.comparison.sameNameDifferentFolder.slice(0, 20)) ul.createEl('li', { text: `${pair.local} ↔ ${pair.remote}` });
+      }
+      if (this.comparison.structuralConflicts.length) {
+        contentEl.createEl('p', { cls: 'github-vault-sync-error-text',
+          text: `检测到大小写或文件/文件夹路径冲突，不能安全合并：${this.comparison.structuralConflicts.slice(0, 5).join('；')}` });
+      }
+    }
+    const note = contentEl.createDiv({ cls: 'github-vault-sync-preview-advice' });
+    note.createEl('strong', { text: '不要把“本机较新”理解成自动覆盖整个仓库' });
+    note.createEl('p', { text: '选择合并后，两端独有文件都会保留；同一路径但内容不同的笔记和配置进入逐文件冲突处理。也可将仓库完整恢复到旁边的新 Vault，不改变当前笔记库。若想完全不混用旧库，请先新建另一个私有仓库。' });
+    if (this.comparison.warnings.length) {
+      const warning = contentEl.createEl('details');
+      warning.createEl('summary', { text: `预检提醒 ${this.comparison.warnings.length}` });
+      for (const message of this.comparison.warnings.slice(0, 12)) warning.createEl('p', { text: message });
+    }
+    const actions = new Setting(contentEl).setClass('github-vault-sync-modal-actions');
+    if (this.comparison.remoteExists) actions.addButton((button) => button.setButtonText('另建仓库副本')
+      .onClick(() => void this.submit('separate')));
+    actions.addButton((button) => button.setButtonText('取消').onClick(() => this.close()));
+    actions.addButton((button) => button.setButtonText(this.comparison.remoteExists ? '合并本机与仓库' : '从本机初始化私有仓库')
+      .setCta().setDisabled(this.comparison.structuralConflicts.length > 0)
+      .onClick(() => void this.submit('local')));
+  }
+
+  onClose(): void { this.contentEl.empty(); }
+}
+
+class CurrentNoteModal extends Modal {
+  private submitting = false;
+
+  constructor(app: App, private readonly plan: CurrentNotePlan,
+    private readonly onSubmit: () => Promise<void>, private readonly onFullPreview: () => Promise<void>,
+    private readonly onCompare: () => Promise<void>) { super(app); }
+
+  onOpen(): void {
+    this.contentEl.empty();
+    this.modalEl.addClass('github-vault-sync-note-modal');
+    const content = this.contentEl;
+    content.createEl('h2', { text: '仅同步当前笔记' });
+    content.createEl('p', { cls: 'github-vault-sync-note-path', text: this.plan.notePath });
+    content.createEl('p', { cls: 'setting-item-description',
+      text: `本次仅包含此 Markdown 文件${this.plan.attachments.length ? `及 ${this.plan.attachments.length} 个 Obsidian 元数据识别的嵌入附件` : ''}。其他笔记与 .obsidian 配置不会提交。` });
+    const status = content.createDiv({ cls: 'github-vault-sync-scope-status' });
+    status.createEl('strong', { text: this.plan.changedPaths.length
+      ? `待上传 ${this.plan.changedPaths.length} 个文件` : '笔记和引用附件已与仓库一致' });
+    status.createEl('span', { text: this.plan.remoteHasNote
+      ? this.plan.remoteNoteDifferent ? '此笔记的本机内容与仓库不同' : '笔记正文相同'
+      : '仓库尚无此笔记；将新建文件' });
+    if (this.plan.attachments.length) {
+      const list = content.createEl('details', { cls: 'github-vault-sync-note-assets' });
+      list.createEl('summary', { text: `引用的附件（${this.plan.attachments.length}）` });
+      const ul = list.createEl('ul');
+      for (const asset of this.plan.attachments.slice(0, 30)) ul.createEl('li', { text: asset });
+      if (this.plan.attachments.length > 30) ul.createEl('li', { text: `另外 ${this.plan.attachments.length - 30} 个…` });
+    }
+    content.createEl('p', { cls: 'github-vault-sync-hint',
+      text: '若其他设备已推送新版本、Git 索引中有暂存文件，或预览后这篇笔记发生变化，本操作会拒绝上传。请先进行全库预览与冲突处理。' });
+    const secondary = new Setting(content).setClass('github-vault-sync-modal-secondary');
+    secondary.addButton((button) => button.setButtonText('查看本机与仓库内容').onClick(() => void this.onCompare()));
+    secondary.addButton((button) => button.setButtonText('全库预览').onClick(async () => { this.close(); await this.onFullPreview(); }));
+    const actions = new Setting(content).setClass('github-vault-sync-modal-actions');
+    actions.addButton((button) => button.setButtonText('取消').onClick(() => this.close()));
+    actions.addButton((button) => button.setButtonText('仅上传此笔记').setCta()
+      .setDisabled(this.plan.changedPaths.length === 0).onClick(async () => {
+        if (this.submitting) return;
+        this.submitting = true;
+        this.close();
+        await this.onSubmit();
+      }));
   }
 
   onClose(): void { this.contentEl.empty(); }
@@ -788,6 +968,8 @@ class InitialBindingModal extends Modal {
 
 class SyncPreviewModal extends Modal {
   private selected: SyncPriority | null = null;
+  private configApproved = false;
+  private submitting = false;
 
   constructor(app: App, private readonly preview: SyncPreview,
     private readonly onSubmit: (priority: SyncPriority) => Promise<void>,
@@ -818,6 +1000,12 @@ class SyncPreviewModal extends Modal {
     this.renderGroup(groups, '2 · 笔记文件夹附件', this.preview.noteAttachments);
     this.renderGroup(groups, '3 · Obsidian 插件与配置', this.preview.obsidianConfig);
     this.renderGroup(groups, '4 · 其他文件', this.preview.otherFiles);
+    const incomingConfig = this.preview.obsidianConfig.filter((file) => file.remoteStatus);
+    if (incomingConfig.length) {
+      new Setting(contentEl).setName(`远端配置变化：${incomingConfig.length} 个文件`)
+        .setDesc('远端插件代码与 Obsidian 配置可能不同于本设备。请先核对上方列表再允许合并；未确认不会应用这些远端内容。')
+        .addToggle((toggle) => toggle.setValue(false).onChange((value) => { this.configApproved = value; }));
+    }
 
     const advice = contentEl.createDiv({ cls: 'github-vault-sync-preview-advice' });
     advice.createEl('strong', { text: '优先方式只处理“同一篇 Markdown 两端都改过”的冲突' });
@@ -836,14 +1024,17 @@ class SyncPreviewModal extends Modal {
       warning.createEl('summary', { text: `预检提醒（${this.preview.warnings.length}）` });
       for (const message of this.preview.warnings.slice(0, 12)) warning.createEl('p', { text: message });
     }
-    const actions = new Setting(contentEl);
+    const actions = new Setting(contentEl).setClass('github-vault-sync-modal-actions');
+    actions.addButton((button) => button.setButtonText('取消，不上传').onClick(() => this.close()));
     actions.addButton((button) => button.setButtonText('确认并同步').setCta().onClick(async () => {
       if (!this.selected || !selected) { new Notice('先选择同一篇笔记发生冲突时的优先方式。'); return; }
+      if (incomingConfig.length && !this.configApproved) { new Notice('请先审阅并确认远端 Obsidian 配置差异。'); return; }
+      if (this.submitting) return;
+      this.submitting = true;
       const priority = this.selected;
       this.close();
       await this.onSubmit(priority);
     }));
-    actions.addButton((button) => button.setButtonText('取消，不上传').onClick(() => this.close()));
   }
 
   private renderGroup(container: HTMLElement, title: string, files: FileChange[]): void {
@@ -851,18 +1042,33 @@ class SyncPreviewModal extends Modal {
     group.createEl('h3', { text: `${title} · ${files.length}` });
     if (!files.length) { group.createEl('p', { text: '没有发现差异', cls: 'setting-item-description' }); return; }
     const list = group.createEl('ul');
-    for (const file of files.slice(0, 30)) {
-      const side = file.localStatus && file.remoteStatus ? '两端均有变化'
-        : file.localStatus ? '本机有变化' : '仓库有变化';
-      const item = list.createEl('li');
-      item.createEl('span', { text: `${file.path} · ${side}` });
-      if (isMarkdownNote(file.path)) {
-        const compare = item.createEl('button', { cls: 'github-vault-sync-note-compare', text: '查看两端内容' });
-        compare.type = 'button';
-        compare.addEventListener('click', () => void this.onCompareNote(file.path));
+    let displayed = 0;
+    const displayMore = () => {
+      const end = Math.min(displayed + 30, files.length);
+      for (const file of files.slice(displayed, end)) {
+        const side = file.localStatus && file.remoteStatus ? '两端均有变化'
+          : file.localStatus ? '本机有变化' : '仓库有变化';
+        const item = list.createEl('li');
+        item.createEl('span', { text: `${file.path} · ${side}` });
+        if (isMarkdownNote(file.path)) {
+          const compare = item.createEl('button', { cls: 'github-vault-sync-note-compare', text: '查看两端内容' });
+          compare.type = 'button';
+          compare.addEventListener('click', () => void this.onCompareNote(file.path));
+        }
       }
+      displayed = end;
+      if (more) {
+        more.setText(`再显示 30 个（剩余 ${files.length - displayed}）`);
+        more.toggleClass('is-hidden', displayed >= files.length);
+      }
+    };
+    let more: HTMLButtonElement | undefined;
+    displayMore();
+    if (files.length > displayed) {
+      more = group.createEl('button', { cls: 'github-vault-sync-note-compare', text: `再显示 30 个（剩余 ${files.length - displayed}）` });
+      more.type = 'button';
+      more.addEventListener('click', displayMore);
     }
-    if (files.length > 30) group.createEl('p', { text: `另有 ${files.length - 30} 个文件未展开…`, cls: 'setting-item-description' });
   }
 
   onClose(): void { this.contentEl.empty(); }
@@ -927,8 +1133,11 @@ class SyncCenterModal extends Modal {
       const list = contentEl.createEl('ul');
       for (const warning of snapshot.warnings.slice(0, 15)) list.createEl('li', { text: warning });
     }
-    const actions = new Setting(contentEl);
-    actions.addButton((button) => button.setButtonText('预览并同步').setCta().onClick(async () => { await this.plugin.syncNow(); this.render(); }));
+    const actions = new Setting(contentEl).setClass('github-vault-sync-modal-actions');
+    actions.addButton((button) => button.setButtonText('仅同步当前笔记').setCta()
+      .setDisabled(!this.plugin.getCurrentNote() || !this.plugin.settings.repo?.private || !this.plugin.settings.token)
+      .onClick(async () => { this.close(); await this.plugin.previewActiveNote(); }));
+    actions.addButton((button) => button.setButtonText('预览整个库').onClick(async () => { this.close(); await this.plugin.syncNow(); }));
     if (this.plugin.settings.encryptionKey) actions.addButton((button) => button.setButtonText('恢复加密配置').onClick(() => void this.plugin.restorePrivateSettings()));
     if ((this.plugin.settings.pendingMerge?.conflicts.length ?? 0) > 0) actions.addButton((button) => button.setButtonText('处理冲突').setWarning().onClick(() => this.plugin.openConflicts()));
     actions.addButton((button) => button.setButtonText('关闭').onClick(() => this.close()));
@@ -939,6 +1148,7 @@ class SyncCenterModal extends Modal {
 
 class ConflictModal extends Modal {
   private choices: Record<string, ConflictChoice> = {};
+  private submitting = false;
 
   constructor(app: App, private readonly conflicts: Array<{ path: string; localExists: boolean; remoteExists: boolean; localSize?: number; remoteSize?: number; choice: ConflictChoice }>, private readonly onSubmit: (choices: Record<string, ConflictChoice>) => Promise<void>) {
     super(app);
@@ -949,15 +1159,28 @@ class ConflictModal extends Modal {
     const { contentEl } = this;
     contentEl.empty();
     contentEl.createEl('h2', { text: `同步冲突（${this.conflicts.length}）` });
-    contentEl.createEl('p', { text: 'GitHub Vault Sync 不自动合并同一路径的两份修改。请选择每个文件的版本。' });
-    new Setting(contentEl).setName('批量默认').addDropdown((dropdown) => dropdown.addOptions({ '': '不改变', local: '全部保留本地', remote: '全部使用远端', both: '全部保留两份' }).onChange((value) => {
+    contentEl.createEl('p', { text: '先处理同一篇笔记，再逐项检查附件与插件配置。未选中的笔记版本保存在 Vault 本地冲突副本中。' });
+    new Setting(contentEl).setName('批量选择 Markdown 笔记').setDesc('不会影响插件设置、密文包或附件冲突。')
+      .addDropdown((dropdown) => dropdown.addOptions({ '': '不改变', local: '笔记保留本机', remote: '笔记使用仓库', both: '笔记保留两份' }).onChange((value) => {
       if (!value) return;
-      for (const conflict of this.conflicts) this.choices[conflict.path] = value as ConflictChoice;
+      for (const conflict of this.conflicts.filter((item) => isMarkdownNote(item.path))) this.choices[conflict.path] = value as ConflictChoice;
       this.renderChoices();
     }));
     this.choiceContainer = contentEl.createDiv({ cls: 'github-vault-sync-conflicts' });
     this.renderChoices();
-    new Setting(contentEl).addButton((button) => button.setButtonText('应用选择').setCta().onClick(() => void this.onSubmit(this.choices))).addButton((button) => button.setButtonText('取消').onClick(() => this.close()));
+    const actions = new Setting(contentEl).setClass('github-vault-sync-modal-actions');
+    actions.addButton((button) => button.setButtonText('稍后处理').onClick(() => this.close()));
+    actions.addButton((button) => button.setButtonText('确认合并这些文件').setCta().onClick(async () => {
+      if (this.conflicts.some((item) => !this.choices[item.path])) { new Notice('请先为每个冲突文件选择版本。'); return; }
+      if (this.submitting) return;
+      this.submitting = true;
+      try {
+        await this.onSubmit(this.choices);
+        this.close();
+      } finally {
+        this.submitting = false;
+      }
+    }));
   }
 
   private choiceContainer!: HTMLElement;
@@ -965,7 +1188,7 @@ class ConflictModal extends Modal {
   private renderChoices(): void {
     if (!this.choiceContainer) return;
     this.choiceContainer.empty();
-    for (const conflict of this.conflicts) {
+    for (const conflict of [...this.conflicts].sort((a, b) => Number(isMarkdownNote(b.path)) - Number(isMarkdownNote(a.path)) || a.path.localeCompare(b.path))) {
       const size = `本地 ${conflict.localExists ? formatBytes(conflict.localSize ?? 0) : '不存在'} · 远端 ${conflict.remoteExists ? formatBytes(conflict.remoteSize ?? 0) : '不存在'}`;
       new Setting(this.choiceContainer).setName(conflict.path).setDesc(size).addDropdown((dropdown) => dropdown.addOptions({ '': '请选择', local: '保留本地', remote: '使用远端', both: '保留两份' }).setValue(this.choices[conflict.path] ?? '').onChange((value) => { this.choices[conflict.path] = value as ConflictChoice; }));
     }
@@ -1040,12 +1263,19 @@ class TextModal extends Modal {
 }
 
 class ConfirmModal extends Modal {
+  private submitting = false;
+
   constructor(app: App, private readonly title: string, private readonly description: string, private readonly onConfirm: () => Promise<void>) { super(app); }
   onOpen(): void {
     this.contentEl.empty();
     this.contentEl.createEl('h2', { text: this.title });
     this.contentEl.createEl('p', { text: this.description });
-    new Setting(this.contentEl).addButton((button) => button.setButtonText('确认').setWarning().onClick(async () => { this.close(); await this.onConfirm(); })).addButton((button) => button.setButtonText('取消').onClick(() => this.close()));
+    new Setting(this.contentEl).addButton((button) => button.setButtonText('确认').setWarning().onClick(async () => {
+      if (this.submitting) return;
+      this.submitting = true;
+      this.close();
+      try { await this.onConfirm(); } finally { this.submitting = false; }
+    })).addButton((button) => button.setButtonText('取消').onClick(() => this.close()));
   }
   onClose(): void { this.contentEl.empty(); }
 }

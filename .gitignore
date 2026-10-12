@@ -8,6 +8,7 @@ dist/
 
 # Local handoff and credentials must never enter the public GitHub repository
 private/
+/PROJECT.md
 .env
 .env.*
 *.key

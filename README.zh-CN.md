@@ -4,10 +4,12 @@
 
 **GitHub Vault Sync** 是 Obsidian 桌面端插件，可将笔记库同步到**另外一个由你控制的私有 GitHub 仓库**。本项目公开仓库只发布插件源码与安装包，**不要把笔记或凭据上传到本公开仓库**。
 
-## 安装 v0.1.0
+## 安装 v0.1.1
+
+这是在公开 v0.1.0 基础上的兼容更新：新增当前 Markdown 笔记的独立同步入口、实际嵌入附件范围预览、初次绑定的新旧 Vault 预检，以及重复点击和过期预览保护。
 
 1. 先备份 Obsidian Vault。安装 Git；如需同步图片、PDF 等符合附件规则的文件，另需安装 Git LFS。
-2. 打开本项目 GitHub 的 **Releases**，下载 `github-vault-sync-0.1.0.zip`。**唯一手动上传的 Release 资产**就是此 ZIP；仓库也保留同一份 [`releases/github-vault-sync-0.1.0.zip`](releases/github-vault-sync-0.1.0.zip)。GitHub 自动生成的“Source code (zip/tar.gz)”**不是可安装插件包**，因为项目根目录不收录构建后的 `main.js`。
+2. 打开本项目 GitHub 的 **Releases**，下载 `github-vault-sync-0.1.1.zip`。**唯一手动上传的 Release 资产**就是此 ZIP；仓库也保留同一份 [`releases/github-vault-sync-0.1.1.zip`](releases/github-vault-sync-0.1.1.zip)。GitHub 自动生成的“Source code (zip/tar.gz)”**不是可安装插件包**，因为项目根目录不收录构建后的 `main.js`。
 3. 将 ZIP 解压到 `<Vault>/.obsidian/plugins/`，确认结果为：
 
    ```text
@@ -19,7 +21,7 @@
    不要多套一层 `github-vault-sync/`。ZIP 已含全部插件文件和双语安装说明；手动安装不用再单独下载 Release 资产，也无需 Node.js、pnpm。Git 及按附件规则需要的 Git LFS 仍是**系统层依赖**。安装包不含 Token、恢复密钥或个人笔记。
 4. 重启 Obsidian，在「设置 → 第三方插件」启用 **GitHub Vault Sync**。仅支持 **Obsidian 桌面版 1.13.0+**，不支持移动端。
 
-如果你当前已经安装标为 `0.4.0` 的本地原型，公开 `0.1.0` 是**首次公开发行编号，不是更高版本的升级**。无需仅为了下载公开包就替换正常运行的安装；手动替换前请备份 Vault，并保留本地的 `data.json`。
+如果你当前已经安装标为 `0.4.0` 的本地原型，公开 `0.1.0` 才是**首次公开发行**；`0.1.1` 是在其基础上的兼容更新，不等同于内部 `0.4.0` 的版本降级或升级。无需仅为了下载公开包就替换正常运行的安装；手动替换前请备份 Vault，并保留本地的 `data.json`。
 
 ## 连接自己的私有笔记仓库
 
@@ -50,7 +52,7 @@ pnpm test
 pnpm build
 ```
 
-构建产物为项目根目录的 `main.js`；安装到 Vault 的只需 `manifest.json`、`main.js`、`styles.css`。现成安装包请使用唯一的 [Release ZIP](releases/github-vault-sync-0.1.0.zip)。架构、设计决策、测试和已脱敏的开发对话时间线见 [项目交接文档](docs/PROJECT_HISTORY.md)。
+构建产物为项目根目录的 `main.js`；安装到 Vault 的只需 `manifest.json`、`main.js`、`styles.css`。现成安装包请使用唯一的 [Release ZIP](releases/github-vault-sync-0.1.1.zip)。架构、设计决策、测试和已脱敏的开发对话时间线见 [项目交接文档](docs/PROJECT_HISTORY.md)。
 
 ## 安全提示
 

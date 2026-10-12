@@ -1,6 +1,6 @@
 {
   "name": "github-vault-sync",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Safe GitHub-backed synchronization for Obsidian desktop vaults.",
   "private": true,
   "scripts": {

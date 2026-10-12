@@ -4,10 +4,12 @@
 
 **GitHub Vault Sync** is an Obsidian desktop plugin for synchronizing a vault with a **separate private GitHub repository**. This public repository contains only the plugin's source code and distributable releases. **Do not use this public repository for your notes or credentials.**
 
-## Install the v0.1.0 release
+## Install the v0.1.1 release
+
+This compatible update adds a dedicated current-note sync action, previews only actual embedded attachments for that action, hardens first-binding migration checks, and guards stale or repeated confirmations.
 
 1. Back up your Obsidian vault. Install Git; install Git LFS before syncing images or other attachments matched by the plugin's LFS rules.
-2. Open this project's GitHub **Releases** page and download `github-vault-sync-0.1.0.zip`. The **only manually uploaded release asset** is this ZIP; the same file is kept in [`releases/github-vault-sync-0.1.0.zip`](releases/github-vault-sync-0.1.0.zip). GitHub’s automatic “Source code (zip/tar.gz)” downloads are **not** installable plugin bundles because the project root omits the compiled `main.js`.
+2. Open this project's GitHub **Releases** page and download `github-vault-sync-0.1.1.zip`. The **only manually uploaded release asset** is this ZIP; the same file is kept in [`releases/github-vault-sync-0.1.1.zip`](releases/github-vault-sync-0.1.1.zip). GitHub’s automatic “Source code (zip/tar.gz)” downloads are **not** installable plugin bundles because the project root omits the compiled `main.js`.
 3. Extract the ZIP into `<Vault>/.obsidian/plugins/`. The resulting files must be:
 
    ```text
@@ -19,7 +21,7 @@
    Avoid an extra nested `github-vault-sync/github-vault-sync/` directory. The ZIP already contains every plugin file and bilingual setup instructions: no separate Release downloads, Node.js, or pnpm are needed for manual installation. Git and, where applicable, Git LFS remain separate **system prerequisites**. The ZIP contains no tokens, recovery keys, or personal vault data.
 4. Restart Obsidian. In **Settings → Community plugins**, enable **GitHub Vault Sync**. Requires Obsidian desktop **1.13.0+**; mobile Obsidian is not supported.
 
-If you already use a local pre-release labeled `0.4.0`, the public `0.1.0` is the **first public release of the same project, not a higher-version update**. You need not replace your working installation merely to download the public package. Back up your vault before any manual replacement and leave local `data.json` in place.
+If you already use a local pre-release labeled `0.4.0`, public `0.1.0` was the **first public release**; `0.1.1` is a compatible follow-up and is not a downgrade or upgrade of the internal `0.4.0` build. You need not replace your working installation merely to download the public package. Back up your vault before any manual replacement and leave local `data.json` in place.
 
 ## Connect your own private vault repository
 
@@ -50,7 +52,7 @@ pnpm test
 pnpm build
 ```
 
-The build creates `main.js` in the project root; only `manifest.json`, `main.js`, and `styles.css` belong in an installed plugin folder. For the ready-to-install package use the single [release ZIP](releases/github-vault-sync-0.1.0.zip) instead. See [the developer handoff](docs/PROJECT_HISTORY.md) for architecture, design decisions, tests, and the public-safe development conversation timeline.
+The build creates `main.js` in the project root; only `manifest.json`, `main.js`, and `styles.css` belong in an installed plugin folder. For the ready-to-install package use the single [release ZIP](releases/github-vault-sync-0.1.1.zip) instead. See [the developer handoff](docs/PROJECT_HISTORY.md) for architecture, design decisions, tests, and the public-safe development conversation timeline.
 
 ## Security note
 

@@ -383,6 +383,11 @@ export class GitService {
     return result.code === 0;
   }
 
+  async blobOid(ref: string, relPath: string): Promise<string | null> {
+    const oid = await this.tryText(['rev-parse', '--verify', `${ref}:${relPath}`]);
+    return oid?.trim() ?? null;
+  }
+
   async fileSizeAndHash(ref: string, relPath: string): Promise<{ size: number; hash: string } | null> {
     const content = await this.run(['show', `${ref}:${relPath}`], { allowFailure: true });
     if (content.code !== 0) return null;
@@ -451,6 +456,31 @@ export class GitService {
     // included files must remain staged after the add --all pass.
     const missing = scan.included.filter((file) => !staged.has(file.path));
     if (missing.length) throw new Error(`Git could not stage ${missing.length} selected file(s), possibly in an embedded repository: ${missing.slice(0, 5).join(', ')}`);
+  }
+
+  /** Stage only paths approved in a current-note preview; refuse a dirty index. */
+  async stageSelected(paths: readonly string[]): Promise<void> {
+    if (!(await this.hasHead())) throw new Error('Initialize the Vault repository before syncing one note');
+    if (await this.hasStagedChanges()) throw new Error('Git already has staged changes. Review or commit them before syncing just this note.');
+    const unique = [...new Set(paths)];
+    if (!unique.length) throw new Error('No current note selected');
+    const scan = await scanVault(this.vaultPath, this.settings);
+    if (scan.errors.length || scan.caseCollisions.length || scan.windowsPathIssues.length) {
+      throw new Error(`Vault preflight failed: ${scan.errors.slice(0, 3).join('; ') || 'unsafe or colliding paths'}`);
+    }
+    const approved = new Set(scan.included.map((file) => file.path));
+    for (const rel of unique) {
+      if (!isSafeRelativePath(rel) || normalizeRelPath(rel) !== rel || !approved.has(rel)) {
+        throw new Error(`Selected note or attachment cannot be safely staged: ${rel}`);
+      }
+    }
+    for (let i = 0; i < unique.length; i += 100) {
+      await this.run(['add', '--all', '--', ...unique.slice(i, i + 100).map((rel) => `:(literal)${rel}`)]);
+    }
+    const staged = (await this.run(['diff', '--cached', '--name-only', '-z', 'HEAD'])).stdout.toString('utf8').split('\0').filter(Boolean);
+    if (staged.some((rel) => !unique.includes(rel)) || unique.some((rel) => !approved.has(rel))) {
+      throw new Error('Git staged a file outside the approved note scope; refusing to commit');
+    }
   }
 
   async hasStagedChanges(): Promise<boolean> {
