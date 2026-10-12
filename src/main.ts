@@ -2,7 +2,6 @@ import {
   App,
   Modal,
   Notice,
-  MarkdownView,
   TFile,
   Plugin,
   PluginSettingTab,
@@ -101,8 +100,8 @@ export default class GithubVaultSyncPlugin extends Plugin {
   settings: GithubVaultSyncSettings = { ...DEFAULT_SETTINGS, excludePatterns: [...DEFAULT_SETTINGS.excludePatterns], lfsPatterns: [...DEFAULT_SETTINGS.lfsPatterns] };
   engine!: SyncEngine;
   private statusBar!: HTMLElement;
-  private noteAction: HTMLElement | null = null;
-  private noteActionView: MarkdownView | null = null;
+  private statusLabel!: HTMLButtonElement;
+  private currentNoteButton!: HTMLButtonElement;
   private vaultPath = '';
   private actionRunning = false;
   private autoTimer: number | null = null;
@@ -126,12 +125,23 @@ export default class GithubVaultSyncPlugin extends Plugin {
 
     this.statusBar = this.addStatusBarItem();
     this.statusBar.addClass('github-vault-sync-status');
-    this.statusBar.setAttribute('role', 'button');
-    this.statusBar.setAttribute('tabindex', '0');
-    this.statusBar.addEventListener('click', () => this.openSyncCenter());
-    this.statusBar.addEventListener('keydown', (event) => {
-      if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); this.openSyncCenter(); }
+    this.statusLabel = this.statusBar.createEl('button', {
+      cls: 'github-vault-sync-status-info',
+      text: 'GitHub Sync'
     });
+    this.statusLabel.type = 'button';
+    this.statusLabel.addEventListener('click', () => this.openSyncCenter());
+    this.currentNoteButton = this.statusBar.createEl('button', {
+      cls: 'github-vault-sync-current-note-button',
+      text: '同步当前笔记'
+    });
+    this.currentNoteButton.type = 'button';
+    this.currentNoteButton.addEventListener('click', (event) => {
+      event.stopPropagation();
+      void this.previewActiveNote();
+    });
+    this.registerEvent(this.app.workspace.on('active-leaf-change', () => this.updateCurrentNoteButton()));
+    this.registerEvent(this.app.workspace.on('file-open', () => this.updateCurrentNoteButton()));
     this.updateStatus(this.engine.getSnapshot());
     this.addSettingTab(new GithubVaultSyncSettingTab(this.app, this));
 
@@ -160,15 +170,9 @@ export default class GithubVaultSyncPlugin extends Plugin {
       this.scheduleAutoSync(file.path);
       this.scheduleAutoSync(previous);
     }));
-    this.registerEvent(this.app.workspace.on('active-leaf-change', () => this.updateActiveNoteAction()));
-    this.registerEvent(this.app.workspace.on('file-open', () => this.updateActiveNoteAction()));
-    this.app.workspace.onLayoutReady(() => this.updateActiveNoteAction());
     this.registerInterval(window.setInterval(() => void this.pollAutomaticSync(), 5 * 60 * 1000));
     this.register(() => {
       if (this.autoTimer !== null) window.clearTimeout(this.autoTimer);
-      this.noteAction?.remove();
-      this.noteAction = null;
-      this.noteActionView = null;
       this.snapshotListeners.clear();
     });
     window.setTimeout(() => {
@@ -180,26 +184,22 @@ export default class GithubVaultSyncPlugin extends Plugin {
     // The Git operations are short-lived child processes; no persistent watcher is used.
   }
 
-  private updateActiveNoteAction(): void {
-    const view = this.app.workspace.getActiveViewOfType(MarkdownView);
-    if (this.noteActionView === view && this.noteAction?.isConnected &&
-      view?.file && isMarkdownNote(view.file.path)) return;
-    this.noteAction?.remove();
-    this.noteAction = null;
-    this.noteActionView = null;
-    if (!view?.file || !isMarkdownNote(view.file.path)) return;
-    const action = view.addAction('cloud-upload', '仅预览并同步此笔记及引用的附件', () => {
-      const current = view.file;
-      if (current && isMarkdownNote(current.path)) void this.previewActiveNote(current);
-    });
-    action.addClass('github-vault-sync-note-action');
-    action.setAttribute('aria-label', '仅同步当前笔记');
-    this.noteAction = action;
-    this.noteActionView = view;
+  private updateCurrentNoteButton(): void {
+    if (!this.currentNoteButton) return;
+    const note = this.getCurrentNote();
+    const ready = Boolean(note && this.settings.repo?.private && this.settings.token && !this.actionRunning);
+    this.currentNoteButton.disabled = !ready;
+    this.currentNoteButton.toggleClass('is-disabled', !ready);
+    this.currentNoteButton.setAttribute('aria-label', note
+      ? `同步当前笔记：${note.path}`
+      : '请先打开一篇 Markdown 笔记');
+    this.currentNoteButton.setAttribute('title', note
+      ? ready ? `同步当前笔记：${note.path}` : '请先连接私有仓库，或等待当前同步任务完成'
+      : '请先打开一篇 Markdown 笔记');
   }
 
   getCurrentNote(): TFile | null {
-    const selected = this.app.workspace.getActiveViewOfType(MarkdownView)?.file ?? this.app.workspace.getActiveFile();
+    const selected = this.app.workspace.getActiveFile();
     return selected && isMarkdownNote(selected.path) ? selected : null;
   }
 
@@ -207,6 +207,7 @@ export default class GithubVaultSyncPlugin extends Plugin {
     if (!note) { new Notice('请先在 Obsidian 打开一篇 Markdown 笔记。'); return; }
     if (this.actionRunning) { new Notice('已有同步检查正在运行，请稍后。'); return; }
     this.actionRunning = true;
+    this.updateCurrentNoteButton();
     try {
       const embeds = this.app.metadataCache.getFileCache(note)?.embeds ?? [];
       const linked = embeddedAttachmentPaths(note.path, embeds, (link, sourcePath) =>
@@ -219,7 +220,10 @@ export default class GithubVaultSyncPlugin extends Plugin {
       }).open();
     } catch (error) {
       new Notice(`不能只同步这篇笔记：${error instanceof Error ? error.message : String(error)}。可打开全库预览处理。`, 11000);
-    } finally { this.actionRunning = false; }
+    } finally {
+      this.actionRunning = false;
+      this.updateCurrentNoteButton();
+    }
   }
 
   async saveSensitiveSettings(): Promise<void> {
@@ -238,10 +242,12 @@ export default class GithubVaultSyncPlugin extends Plugin {
 
   private updateStatus(snapshot: SyncSnapshot): void {
     if (this.statusBar) {
-      this.statusBar.setText(`GitHub Sync · ${healthLabel(snapshot.health)}`);
+      this.statusLabel.setText(`GitHub Sync · ${healthLabel(snapshot.health)}`);
+      this.statusLabel.setAttribute('aria-label', snapshot.message);
       this.statusBar.setAttribute('aria-label', snapshot.message);
       this.statusBar.toggleClass('github-vault-sync-error', snapshot.health === 'error');
       this.statusBar.toggleClass('github-vault-sync-conflict', snapshot.health === 'conflicts');
+      this.updateCurrentNoteButton();
     }
     for (const listener of this.snapshotListeners) listener(snapshot);
   }
@@ -400,6 +406,7 @@ export default class GithubVaultSyncPlugin extends Plugin {
       return null;
     } finally {
       this.actionRunning = false;
+      this.updateCurrentNoteButton();
       if (this.autoPending) {
         this.autoPending = false;
         this.scheduleAutoSync();
@@ -410,6 +417,7 @@ export default class GithubVaultSyncPlugin extends Plugin {
   async syncNow(): Promise<void> {
     if (this.actionRunning) { new Notice('已有同步检查正在运行，请稍候。'); return; }
     this.actionRunning = true;
+    this.updateCurrentNoteButton();
     try {
       const preview = await this.engine.previewSync();
       new SyncPreviewModal(this.app, preview, async (priority) => {
@@ -420,6 +428,7 @@ export default class GithubVaultSyncPlugin extends Plugin {
       new Notice(`无法生成同步预览：${error instanceof Error ? error.message : String(error)}`, 10000);
     } finally {
       this.actionRunning = false;
+      this.updateCurrentNoteButton();
     }
   }
 
@@ -588,8 +597,11 @@ export default class GithubVaultSyncPlugin extends Plugin {
   }
 }
 
+type SettingsSection = 'sync' | 'privacy' | 'account' | 'advanced';
+
 class GithubVaultSyncSettingTab extends PluginSettingTab {
   private unsubscribe?: () => void;
+  private activeSection: SettingsSection = 'sync';
 
   constructor(app: App, private readonly plugin: GithubVaultSyncPlugin) {
     super(app, plugin);
@@ -598,31 +610,59 @@ class GithubVaultSyncSettingTab extends PluginSettingTab {
   display(): void {
     const { containerEl } = this;
     this.unsubscribe?.();
+    this.unsubscribe = undefined;
     containerEl.empty();
     containerEl.addClass('github-vault-sync-settings-page');
+
     const hero = containerEl.createDiv({ cls: 'github-vault-sync-hero' });
-    hero.createEl('h2', { text: 'GitHub Vault Sync' });
+    const heroTitle = hero.createDiv({ cls: 'github-vault-sync-hero-title' });
+    heroTitle.createEl('h2', { text: 'GitHub Vault Sync' });
+    const statusBadge = heroTitle.createSpan({ cls: 'github-vault-sync-health', text: healthLabel(this.plugin.engine.getSnapshot().health) });
+    statusBadge.dataset.health = this.plugin.engine.getSnapshot().health;
     hero.createEl('p', { text: this.plugin.settings.repo
       ? `${this.plugin.settings.repo.owner}/${this.plugin.settings.repo.name} · ${this.plugin.settings.branch} · ${this.plugin.settings.repo.private ? '私有仓库' : '仓库'}`
       : '尚未连接同步仓库' });
-    hero.createEl('small', { text: '先看笔记与配置差异，再选冲突优先方；未经确认不会上传。' });
-    const statusBadge = hero.createSpan({ cls: 'github-vault-sync-health', text: healthLabel(this.plugin.engine.getSnapshot().health) });
-    statusBadge.dataset.health = this.plugin.engine.getSnapshot().health;
+    hero.createEl('small', { text: '先检查本机与仓库差异，再确认同步；不会绕过确认自动上传。' });
 
-    const overview = containerEl.createDiv({ cls: 'github-vault-sync-panel github-vault-sync-panel-main' });
-    overview.createEl('h3', { text: '常用操作' });
-    const selected = this.plugin.getCurrentNote();
+    const tabs = containerEl.createDiv({ cls: 'github-vault-sync-tabs', attr: { role: 'tablist' } });
+    const sections: Array<[SettingsSection, string]> = [
+      ['sync', '同步'], ['privacy', '隐私与恢复'], ['account', '账户与仓库'], ['advanced', '高级设置']
+    ];
+    for (const [key, label] of sections) {
+      const tab = tabs.createEl('button', { cls: 'github-vault-sync-tab', text: label });
+      tab.type = 'button';
+      tab.setAttribute('role', 'tab');
+      tab.setAttribute('aria-selected', String(this.activeSection === key));
+      tab.toggleClass('is-active', this.activeSection === key);
+      tab.addEventListener('click', () => {
+        if (this.activeSection === key) return;
+        this.activeSection = key;
+        this.display();
+      });
+    }
+
+    const content = containerEl.createDiv({ cls: 'github-vault-sync-settings-content' });
+    if (this.activeSection === 'sync') this.renderSyncSection(content, statusBadge);
+    if (this.activeSection === 'privacy') this.renderPrivacySection(content);
+    if (this.activeSection === 'account') this.renderAccountSection(content);
+    if (this.activeSection === 'advanced') this.renderAdvancedSection(content);
+  }
+
+  private card(container: HTMLElement, title: string, description?: string): HTMLElement {
+    const card = container.createDiv({ cls: 'github-vault-sync-card' });
+    const header = card.createDiv({ cls: 'github-vault-sync-card-header' });
+    header.createEl('h3', { text: title });
+    if (description) header.createEl('p', { text: description });
+    return card;
+  }
+
+  private renderSyncSection(container: HTMLElement, statusBadge: HTMLElement): void {
+    const overview = this.card(container, '笔记同步', '先预览整个笔记库，再选择本机或仓库优先；确认前不会提交或上传。');
     new Setting(overview)
-      .setName('仅同步当前笔记')
-      .setDesc(selected ? `当前：${selected.path}；同时检查实际嵌入的附件，不提交其他笔记。` : '先在 Obsidian 中打开一篇 Markdown 笔记。')
-      .addButton((button) => button.setButtonText('预览此笔记').setCta()
-        .setDisabled(!selected || !this.plugin.settings.repo?.private || !this.plugin.settings.token)
-        .onClick(() => void this.plugin.previewActiveNote()));
-    new Setting(overview)
-      .setName('同步整个笔记库')
-      .setDesc('先比对 Markdown 与附件，再核对 Obsidian 配置；选择冲突优先方后才提交。')
-      .addButton((button) => button.setButtonText('预览整个库')
-        .setDisabled(!this.plugin.settings.repo || !this.plugin.settings.token)
+      .setName('同步前预览')
+      .setDesc('先检查 Markdown 笔记、笔记附件和 Obsidian 配置，再进入冲突选择。')
+      .addButton((button) => button.setButtonText('预览并同步').setCta()
+        .setDisabled(!this.plugin.settings.repo?.private || !this.plugin.settings.token)
         .onClick(() => void this.plugin.syncNow()));
     const summary = overview.createDiv({ cls: 'github-vault-sync-summary' });
     renderSyncSummary(summary, this.plugin.engine.getSnapshot());
@@ -633,18 +673,32 @@ class GithubVaultSyncSettingTab extends PluginSettingTab {
     });
     new Setting(overview)
       .setName('及时检查')
-      .setDesc('本地变更后与每 5 分钟只检查和提醒，绝不自动上传。')
+      .setDesc('本地变更后防抖检查，并每 5 分钟检查远端；只提醒，不自动上传。')
       .addToggle((toggle) => toggle.setValue(this.plugin.settings.autoSyncEnabled)
         .onChange(async (value) => this.plugin.setAutoSyncEnabled(value)));
+    new Setting(overview)
+      .setName('启动时检查远端')
+      .setDesc('打开 Vault 后自动读取远端状态，不会自动合并或上传。')
+      .addToggle((toggle) => toggle.setValue(this.plugin.settings.startupCheck).onChange(async (value) => {
+        this.plugin.settings.startupCheck = value;
+        await this.plugin.saveSensitiveSettings();
+      }));
 
-    const privacy = containerEl.createDiv({ cls: 'github-vault-sync-panel' });
-    privacy.createEl('h3', { text: '隐私与恢复' });
-    privacy.createEl('p', { text: this.plugin.settings.encryptedSyncEnabled
-      ? '插件私有配置已加密镜像到仓库；恢复密钥只在本机。请在别处备份密钥。'
-      : '可把插件 data.json 与例外插件加密成一个密文包，不上传明文凭据。', cls: 'setting-item-description' });
+    const current = this.card(container, '当前笔记', '当前 Markdown 笔记的同步按钮位于 Obsidian 底部状态栏；它只处理当前笔记和实际嵌入附件。');
+    const note = this.plugin.getCurrentNote();
+    new Setting(current)
+      .setName(note ? note.path : '尚未打开 Markdown 笔记')
+      .setDesc(note ? '点击底部状态栏的“同步当前笔记”，不会提交其他笔记。' : '打开 Markdown 笔记后，底部状态栏按钮会自动启用。')
+      .addButton((button) => button.setButtonText('打开同步中心').onClick(() => this.plugin.openSyncCenter()));
+  }
+
+  private renderPrivacySection(container: HTMLElement): void {
+    const privacy = this.card(container, '隐私与恢复', this.plugin.settings.encryptedSyncEnabled
+      ? '插件私有配置已使用客户端加密镜像；恢复密钥只保存在本机。'
+      : '可将插件 data.json 和配置例外加密为密文包，不以明文提交。');
     new Setting(privacy)
       .setName('恢复密钥')
-      .setDesc('明确点击后在弹窗中显示，支持一键复制；关闭弹窗即隐藏。')
+      .setDesc('明确点击后显示完整密钥并支持复制；关闭窗口后隐藏。')
       .addButton((button) => button.setButtonText(this.plugin.settings.encryptedSyncEnabled ? '查看并复制' : '启用加密')
         .setDisabled(!this.plugin.settings.repo)
         .onClick(() => void (this.plugin.settings.encryptedSyncEnabled ? this.plugin.showRecoveryFile() : this.plugin.enableEncryptedSync())));
@@ -652,6 +706,7 @@ class GithubVaultSyncSettingTab extends PluginSettingTab {
       let recoveryInput = '';
       new Setting(privacy)
         .setName('导入其他设备的密钥')
+        .setDesc('只在本机输入恢复密钥，不要粘贴到笔记或公开仓库。')
         .addText((text) => { text.setPlaceholder('GVS1-…').onChange((value) => { recoveryInput = value; }); text.inputEl.type = 'password'; })
         .addButton((button) => button.setButtonText('导入').onClick(async () => {
           const input = recoveryInput;
@@ -663,23 +718,27 @@ class GithubVaultSyncSettingTab extends PluginSettingTab {
     if (this.plugin.settings.encryptionKey) {
       new Setting(privacy)
         .setName('从仓库恢复插件设置')
-        .setDesc('先备份再解密，默认不覆盖本机 GitHub 登录；恢复后需重启。')
+        .setDesc('恢复前自动备份被覆盖文件；默认不覆盖本机 GitHub 登录，完成后需重启。')
         .addButton((button) => button.setButtonText('解密并恢复').onClick(() => void this.plugin.restorePrivateSettings()));
+      new Setting(privacy)
+        .setName('完整恢复本插件登录')
+        .setDesc('谨慎：会连同本机 PAT 和同步设置一起覆盖，并要求重启。')
+        .addButton((button) => button.setButtonText('含凭据恢复').setWarning().onClick(() => void this.plugin.restorePrivateSettings(true)));
     }
+  }
 
-    const connection = containerEl.createEl('details', { cls: 'github-vault-sync-details' });
-    connection.open = !this.plugin.settings.repo || !this.plugin.settings.token;
-    connection.createEl('summary', { text: '账户与仓库' });
-    new Setting(connection)
+  private renderAccountSection(container: HTMLElement): void {
+    const account = this.card(container, '账户与仓库', 'GitHub 登录只用于访问你控制的私有笔记仓库；公开插件仓库不是笔记仓库。');
+    new Setting(account)
       .setName('GitHub 登录')
       .setDesc(this.plugin.settings.token ? `已连接（${this.plugin.settings.authType ?? 'PAT'}）` : '未连接')
-      .addButton((button) => button.setButtonText('连接／更新').onClick(() => void this.plugin.connectGithub()));
-    new Setting(connection)
+      .addButton((button) => button.setButtonText('连接／更新').setCta().onClick(() => void this.plugin.connectGithub()));
+    new Setting(account)
       .setName('绑定仓库')
-      .setDesc(this.plugin.settings.repo ? `${this.plugin.settings.repo.owner}/${this.plugin.settings.repo.name}` : '尚未绑定')
+      .setDesc(this.plugin.settings.repo ? `${this.plugin.settings.repo.owner}/${this.plugin.settings.repo.name} · ${this.plugin.settings.branch}` : '尚未绑定')
       .addButton((button) => button.setButtonText('创建／绑定').onClick(() => void this.plugin.bindRepository()));
     if (!this.plugin.settings.token || this.plugin.settings.authType === 'oauth') {
-      new Setting(connection)
+      new Setting(account)
         .setName('OAuth Client ID')
         .setDesc('仅在使用浏览器 Device Flow 授权时需要。')
         .addText((text) => text.setValue(this.plugin.settings.oauthClientId).onChange(async (value) => {
@@ -687,19 +746,24 @@ class GithubVaultSyncSettingTab extends PluginSettingTab {
           await this.plugin.saveSensitiveSettings();
         }));
     }
+    new Setting(account)
+      .setName('断开同步')
+      .setDesc('清除本插件的 GitHub 令牌和仓库绑定，不删除 Vault 笔记或本地 .git。')
+      .addButton((button) => button.setButtonText('断开并清除凭据').setWarning().onClick(() => void this.plugin.disconnect()));
+  }
 
-    const advanced = containerEl.createEl('details', { cls: 'github-vault-sync-details' });
-    advanced.createEl('summary', { text: '高级选项与排除规则' });
-    new Setting(advanced)
+  private renderAdvancedSection(container: HTMLElement): void {
+    const scope = this.card(container, '同步范围', '控制是否包含 Obsidian 配置、检查延迟和本地扫描范围。');
+    new Setting(scope)
       .setName('同步 .obsidian 设置')
       .setDesc('插件代码和主题可同步；data.json 明文始终排除，私有配置只通过密文镜像同步。')
       .addToggle((toggle) => toggle.setValue(this.plugin.settings.includeObsidian).onChange(async (value) => {
         this.plugin.settings.includeObsidian = value;
         await this.plugin.saveSensitiveSettings();
       }));
-    new Setting(advanced)
+    new Setting(scope)
       .setName('检查延迟（秒）')
-      .setDesc('30–600 秒，默认 90 秒。上传仍需逐次确认。')
+      .setDesc('30–600 秒，默认 90 秒；上传仍需逐次确认。')
       .addText((text) => text.setValue(String(this.plugin.settings.autoSyncDelaySeconds)).onChange(async (value) => {
         const seconds = Number.parseInt(value, 10);
         if (Number.isFinite(seconds) && seconds >= 30 && seconds <= 600) {
@@ -707,53 +771,46 @@ class GithubVaultSyncSettingTab extends PluginSettingTab {
           await this.plugin.saveSensitiveSettings();
         }
       }));
-    new Setting(advanced)
+
+    const rules = this.card(container, '排除规则与附件', '每行一条 glob；凭据类文件和当前插件 data.json 永远不会以明文提交。');
+    new Setting(rules)
       .setName('排除规则')
-      .setDesc('每行一条 glob；凭据类文件与当前插件 data.json 永远不以明文提交。')
+      .setDesc('可添加第三方插件目录、缓存或不希望同步的文件。')
       .addTextArea((area) => {
-        area.inputEl.rows = 9;
+        area.inputEl.rows = 8;
         area.setValue(this.plugin.settings.excludePatterns.join('\n')).onChange(async (value) => {
           this.plugin.settings.excludePatterns = value.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
           await this.plugin.saveSensitiveSettings();
         });
       });
-    new Setting(advanced)
+    new Setting(rules)
       .setName('Git LFS 文件类型')
-      .setDesc('图片、视频等附件按这些模式使用 Git LFS。')
+      .setDesc('图片、视频、PDF 等附件按这些模式使用 Git LFS。')
       .addTextArea((area) => {
-        area.inputEl.rows = 7;
+        area.inputEl.rows = 6;
         area.setValue(this.plugin.settings.lfsPatterns.join('\n')).onChange(async (value) => {
           this.plugin.settings.lfsPatterns = value.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
           await this.plugin.saveSensitiveSettings();
         });
       });
-    new Setting(advanced)
+
+    const tools = this.card(container, '提交信息与工具', '这些选项只影响本地 Git 提交和诊断，不会改变同步冲突策略。');
+    new Setting(tools)
       .setName('Git 提交作者')
       .addText((text) => text.setValue(this.plugin.settings.gitUserName).onChange(async (value) => {
         this.plugin.settings.gitUserName = value.trim() || 'GitHub Vault Sync';
         await this.plugin.saveSensitiveSettings();
       }));
-    new Setting(advanced)
+    new Setting(tools)
       .setName('Git 提交邮箱')
       .addText((text) => text.setValue(this.plugin.settings.gitUserEmail).onChange(async (value) => {
         this.plugin.settings.gitUserEmail = value.trim() || 'github-vault-sync@users.noreply.github.com';
         await this.plugin.saveSensitiveSettings();
       }));
-    new Setting(advanced)
-      .setName('启动时检查远端')
-      .addToggle((toggle) => toggle.setValue(this.plugin.settings.startupCheck).onChange(async (value) => {
-        this.plugin.settings.startupCheck = value;
-        await this.plugin.saveSensitiveSettings();
-      }));
-    new Setting(advanced)
-      .setName('工具')
+    new Setting(tools)
+      .setName('诊断工具')
       .addButton((button) => button.setButtonText('检测 Git / LFS').onClick(() => void this.plugin['checkDependencies']()))
       .addButton((button) => button.setButtonText('查看日志').onClick(() => this.plugin.openLogs()));
-    new Setting(advanced)
-      .setName('完整恢复本插件登录')
-      .setDesc('谨慎：解密恢复时覆盖本机 PAT，需再次确认。')
-      .addButton((button) => button.setButtonText('含凭据恢复').setWarning().setDisabled(!this.plugin.settings.encryptionKey)
-        .onClick(() => void this.plugin.restorePrivateSettings(true)));
   }
 
   hide(): void {
@@ -1133,11 +1190,8 @@ class SyncCenterModal extends Modal {
       const list = contentEl.createEl('ul');
       for (const warning of snapshot.warnings.slice(0, 15)) list.createEl('li', { text: warning });
     }
-    const actions = new Setting(contentEl).setClass('github-vault-sync-modal-actions');
-    actions.addButton((button) => button.setButtonText('仅同步当前笔记').setCta()
-      .setDisabled(!this.plugin.getCurrentNote() || !this.plugin.settings.repo?.private || !this.plugin.settings.token)
-      .onClick(async () => { this.close(); await this.plugin.previewActiveNote(); }));
-    actions.addButton((button) => button.setButtonText('预览整个库').onClick(async () => { this.close(); await this.plugin.syncNow(); }));
+    const actions = new Setting(contentEl);
+    actions.addButton((button) => button.setButtonText('预览并同步').setCta().onClick(async () => { await this.plugin.syncNow(); this.render(); }));
     if (this.plugin.settings.encryptionKey) actions.addButton((button) => button.setButtonText('恢复加密配置').onClick(() => void this.plugin.restorePrivateSettings()));
     if ((this.plugin.settings.pendingMerge?.conflicts.length ?? 0) > 0) actions.addButton((button) => button.setButtonText('处理冲突').setWarning().onClick(() => this.plugin.openConflicts()));
     actions.addButton((button) => button.setButtonText('关闭').onClick(() => this.close()));

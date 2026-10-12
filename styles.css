@@ -404,3 +404,231 @@
 @media (prefers-reduced-motion: reduce) {
   .github-vault-sync-progress:not([value]) { animation: none; }
 }
+
+/* v0.1.2 UI refresh: restore the compact sync-center flow and use an
+   Easy-Typing-like tab/card layout for settings. */
+.github-vault-sync-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 26px;
+  padding: 0 4px;
+  border-radius: var(--radius-s, 4px);
+}
+.github-vault-sync-status-info,
+.github-vault-sync-current-note-button {
+  min-height: 26px;
+  padding: 2px 8px;
+  border: 0;
+  border-radius: var(--radius-s, 4px);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--font-smallest);
+  white-space: nowrap;
+}
+.github-vault-sync-status-info {
+  cursor: pointer;
+}
+.github-vault-sync-status-info:hover,
+.github-vault-sync-status-info:focus-visible {
+  color: var(--text-normal);
+  background: var(--background-modifier-hover);
+}
+.github-vault-sync-current-note-button {
+  color: var(--text-accent);
+  cursor: pointer;
+  font-weight: 600;
+}
+.github-vault-sync-current-note-button:hover,
+.github-vault-sync-current-note-button:focus-visible {
+  color: var(--text-on-accent);
+  background: var(--interactive-accent);
+}
+.github-vault-sync-current-note-button:disabled {
+  color: var(--text-faint);
+  cursor: default;
+  opacity: .7;
+}
+.github-vault-sync-status.github-vault-sync-error .github-vault-sync-status-info,
+.github-vault-sync-status.github-vault-sync-conflict .github-vault-sync-status-info {
+  color: var(--text-error);
+}
+
+.github-vault-sync-settings-page {
+  width: min(100%, 900px);
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 0 0 40px;
+}
+.github-vault-sync-hero {
+  display: block;
+  margin: 0 0 20px;
+  padding: 22px 24px 20px;
+  border: 1px solid var(--background-modifier-border);
+  border-left: 4px solid var(--interactive-accent);
+  border-radius: var(--radius-l, 12px);
+  background: var(--background-secondary);
+}
+.github-vault-sync-hero-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.github-vault-sync-hero h2 {
+  margin: 0;
+  font-size: 1.55em;
+  line-height: 1.25;
+}
+.github-vault-sync-hero p,
+.github-vault-sync-hero small {
+  display: block;
+  margin: 8px 0 0;
+  overflow-wrap: anywhere;
+}
+.github-vault-sync-hero p { font-weight: 600; }
+.github-vault-sync-hero small { color: var(--text-muted); }
+.github-vault-sync-health {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: var(--radius-m, 8px);
+  color: var(--text-accent);
+  background: var(--background-modifier-hover);
+  font-size: var(--font-small);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.github-vault-sync-health[data-health='error'],
+.github-vault-sync-health[data-health='conflicts'] { color: var(--text-error); }
+
+.github-vault-sync-tabs {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  margin: 0 0 20px;
+  padding: 0 8px;
+  border-bottom: 2px solid var(--background-modifier-border);
+  overflow-x: auto;
+}
+.github-vault-sync-tab {
+  flex: 0 0 auto;
+  min-height: 40px;
+  padding: 8px 18px;
+  border: 0;
+  border-radius: var(--radius-m, 8px) var(--radius-m, 8px) 0 0;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--font-ui-medium);
+  cursor: pointer;
+}
+.github-vault-sync-tab:hover,
+.github-vault-sync-tab:focus-visible {
+  color: var(--text-normal);
+  background: var(--background-modifier-hover);
+}
+.github-vault-sync-tab.is-active {
+  color: var(--text-accent);
+  background: var(--background-secondary);
+  box-shadow: inset 0 -3px 0 var(--interactive-accent);
+  font-weight: 600;
+}
+.github-vault-sync-settings-content {
+  display: grid;
+  gap: 20px;
+}
+.github-vault-sync-card {
+  overflow: hidden;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-l, 12px);
+  background: var(--background-primary);
+}
+.github-vault-sync-card-header {
+  padding: 22px 24px 16px;
+  border-bottom: 1px solid var(--background-modifier-border);
+  background: color-mix(in srgb, var(--background-secondary) 55%, var(--background-primary));
+}
+.github-vault-sync-card-header h3 {
+  margin: 0;
+  font-size: 1.25em;
+}
+.github-vault-sync-card-header p {
+  margin: 8px 0 0;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+.github-vault-sync-card > .setting-item {
+  margin: 0 20px;
+  padding: 16px 0;
+  border-top: 1px solid var(--background-modifier-border-hover);
+  align-items: center;
+}
+.github-vault-sync-card > .setting-item:first-of-type { border-top: 0; }
+.github-vault-sync-card > .setting-item .setting-item-info {
+  min-width: 0;
+  padding-inline-end: 20px;
+}
+.github-vault-sync-card > .setting-item .setting-item-name,
+.github-vault-sync-card > .setting-item .setting-item-description {
+  overflow-wrap: anywhere;
+}
+.github-vault-sync-card > .setting-item .setting-item-control {
+  flex: 0 0 auto;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.github-vault-sync-card > .setting-item:has(.setting-item-control textarea) {
+  align-items: flex-start;
+}
+.github-vault-sync-card > .setting-item .setting-item-control textarea {
+  width: min(100%, 420px);
+  min-height: 120px;
+}
+.github-vault-sync-card > .setting-item .setting-item-control input[type='text'] {
+  min-width: 230px;
+}
+.github-vault-sync-card > .setting-item .setting-item-control input[type='number'] {
+  width: 110px;
+}
+.github-vault-sync-card .github-vault-sync-summary {
+  margin: 16px 20px;
+  padding: 16px;
+  border: 1px solid var(--background-modifier-border);
+  border-left: 3px solid var(--interactive-accent);
+  border-radius: var(--radius-m, 8px);
+  background: var(--background-secondary);
+}
+.github-vault-sync-card .github-vault-sync-summary + .setting-item {
+  border-top: 0;
+}
+.github-vault-sync-card .github-vault-sync-hint,
+.github-vault-sync-hint {
+  margin: 16px 20px;
+  padding: 12px 16px;
+  border-left: 3px solid var(--interactive-accent);
+  border-radius: var(--radius-s, 4px);
+  color: var(--text-muted);
+  background: var(--background-secondary);
+}
+
+.github-vault-sync-modal-actions .setting-item-control,
+.github-vault-sync-modal-secondary .setting-item-control {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  width: 100%;
+}
+.github-vault-sync-modal-actions button,
+.github-vault-sync-modal-secondary button { min-height: 36px; }
+
+@media (max-width: 700px) {
+  .github-vault-sync-settings-page { width: 100%; }
+  .github-vault-sync-hero-title { align-items: flex-start; flex-direction: column; gap: 8px; }
+  .github-vault-sync-card > .setting-item { align-items: flex-start; flex-direction: column; gap: 12px; }
+  .github-vault-sync-card > .setting-item .setting-item-info { padding-inline-end: 0; }
+  .github-vault-sync-card > .setting-item .setting-item-control { justify-content: flex-start; width: 100%; }
+  .github-vault-sync-card > .setting-item .setting-item-control textarea,
+  .github-vault-sync-card > .setting-item .setting-item-control input[type='text'] { width: 100%; min-width: 0; }
+}
