@@ -35,6 +35,11 @@ describe('encrypted plugin content in Git synchronization', () => {
     expect((await engine.checkRemote()).ok).toBe(true);
     expect(engine.getSnapshot().encryptedNeedsRestore).toBe(true);
     await expect(fs.stat(bundle)).rejects.toThrow();
+
+    const directUpload = await engine.upload();
+    expect(directUpload.ok).toBe(false);
+    expect(directUpload.message).toContain('Remote encrypted settings are newer');
+    await expect(fs.stat(bundle)).rejects.toThrow();
   });
 
   it('pushes only ciphertext and pauses when a newer encrypted bundle arrives from another device', async () => {

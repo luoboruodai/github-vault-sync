@@ -1,6 +1,7 @@
 import { cleanFixtureRoots } from './fixture-cleanup';
-import { randomBytes } from 'node:crypto';
+import { createDecipheriv, createHmac, randomBytes } from 'node:crypto';
 import { promises as fs } from 'node:fs';
+import { gunzipSync } from 'node:zlib';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -15,6 +16,20 @@ function settings(key: string): GithubVaultSyncSettings {
   return { ...DEFAULT_SETTINGS, token: 'FAKE_TEST_CREDENTIAL_NOT_A_PROVIDER_TOKEN',
     repo: { owner: 'test', name: 'private', branch: 'main', remoteUrl: 'https://github.com/test/private.git', private: true },
     encryptionKey: key, encryptedSyncEnabled: true, encryptedFolders: ['obsidian-memos', 'obsidian-callout-editor'] };
+}
+
+async function rewriteDigestAsV012LegacyBundle(bundlePath: string, recoveryKey: string): Promise<void> {
+  const envelope = JSON.parse(await fs.readFile(bundlePath, 'utf8')) as {
+    nonce: string; tag: string; ciphertext: string; digest: string;
+  };
+  const key = Buffer.from(recoveryKey.slice(5), 'base64url');
+  const decipher = createDecipheriv('aes-256-gcm', key, Buffer.from(envelope.nonce, 'base64'));
+  decipher.setAAD(Buffer.from('GitHub Vault Sync encrypted plugin backup v1'));
+  decipher.setAuthTag(Buffer.from(envelope.tag, 'base64'));
+  const zipped = Buffer.concat([decipher.update(Buffer.from(envelope.ciphertext, 'base64')), decipher.final()]);
+  const plain = gunzipSync(zipped);
+  envelope.digest = createHmac('sha256', key).update(plain).digest('hex');
+  await fs.writeFile(bundlePath, `${JSON.stringify(envelope)}\n`);
 }
 
 async function fixture() {
@@ -88,6 +103,27 @@ describe('client-side encrypted plugin backup', () => {
     const own = JSON.parse(await fs.readFile(path.join(otherVault, '.obsidian/plugins/github-vault-sync/data.json'), 'utf8'));
     expect(own.token).toBe('FAKE_TEST_CREDENTIAL_NOT_A_PROVIDER_TOKEN');
     expect(own.encryptionKey).toBe(key);
+  });
+
+  it('reads and migrates a v0.1.2 legacy digest without changing the payload', async () => {
+    const vault = await fixture();
+    const key = generateRecoveryKey();
+    const config = settings(key);
+    await prepareEncryptedBundle(vault, config);
+    const bundlePath = path.join(vault, ENCRYPTED_BUNDLE);
+    const before = await fs.readFile(bundlePath, 'utf8');
+    await rewriteDigestAsV012LegacyBundle(bundlePath, key);
+    const legacy = await fs.readFile(bundlePath, 'utf8');
+    expect(legacy).not.toBe(before);
+    expect((await inspectEncryptedBundle(vault, config)).files).toBe(5);
+
+    config.encryptionLastDigest = '';
+    const migrated = await prepareEncryptedBundle(vault, config);
+    expect(migrated).toEqual({ changed: true, entries: 5, needsRestore: false });
+    const normalized = await fs.readFile(bundlePath, 'utf8');
+    expect(normalized).not.toBe(legacy);
+    expect((await inspectEncryptedBundle(vault, config)).files).toBe(5);
+    expect((await prepareEncryptedBundle(vault, config)).changed).toBe(false);
   });
 
   it('rejects tampered ciphertext, wrong keys, and unsafe folder IDs', async () => {

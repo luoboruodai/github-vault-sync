@@ -107,7 +107,7 @@ export class SyncEngine {
     this.update({ phase: 'scanning', health: 'checking', message: 'Scanning vault…',
       progress: undefined, progressDetail: undefined, error: undefined });
     try {
-      const encrypted = await prepareEncryptedBundle(this.vaultPath, this.settings);
+      const encrypted = await this.prepareEncryptedBundleSafely();
       if (encrypted.needsRestore) throw new Error('Remote encrypted settings are newer; restore or resolve them before uploading');
       this.scanResult = await scanVault(this.vaultPath, this.settings);
       this.update({
@@ -191,6 +191,31 @@ export class SyncEngine {
       await fs.access(path.join(this.vaultPath, ENCRYPTED_BUNDLE));
       return true;
     } catch { return false; }
+  }
+
+  /**
+   * Never create a first local encrypted bundle until a remote bundle has been
+   * checked. This guard is used by upload paths as well as the read-only check:
+   * a second device can reach an upload action without first opening the
+   * preview, and an empty local bundle must not replace the remote one.
+   */
+  private async prepareEncryptedBundleSafely(remoteRef?: string): Promise<Awaited<ReturnType<typeof prepareEncryptedBundle>>> {
+    if (!this.settings.repo || !this.settings.encryptionKey || await this.hasLocalEncryptedBundle()) {
+      return prepareEncryptedBundle(this.vaultPath, this.settings);
+    }
+    let checkedRef = remoteRef;
+    if (!checkedRef) {
+      await this.ensureRepo(this.settings.repo);
+      const branch = this.settings.branch || this.settings.repo.branch || 'main';
+      if (await this.git.remoteBranchExists(branch)) {
+        await this.git.fetch(branch);
+        checkedRef = `origin/${branch}`;
+      }
+    }
+    if (checkedRef && (await this.validatedRemotePaths(checkedRef)).has(ENCRYPTED_BUNDLE)) {
+      return { changed: false, entries: 0, needsRestore: true };
+    }
+    return prepareEncryptedBundle(this.vaultPath, this.settings);
   }
 
   private async ensureDependencies(requireLfs: boolean): Promise<void> {
@@ -709,10 +734,8 @@ export class SyncEngine {
       const remoteRef = `origin/${this.settings.branch}`;
       const remoteSha = await this.git.refSha(remoteRef);
       if (!remoteSha) throw new Error(`Remote branch ${this.settings.branch} does not exist`);
-      const remotePaths = await this.validatedRemotePaths(remoteRef);
-      const encrypted = !await this.hasLocalEncryptedBundle() && remotePaths.has(ENCRYPTED_BUNDLE) && this.settings.encryptionKey
-        ? { changed: false, entries: 0, needsRestore: true }
-        : await prepareEncryptedBundle(this.vaultPath, this.settings);
+      await this.validatedRemotePaths(remoteRef);
+      const encrypted = await this.prepareEncryptedBundleSafely(remoteRef);
       const scan = await scanVault(this.vaultPath, this.settings);
       this.validateScan(scan);
       this.scanResult = scan;
@@ -890,7 +913,7 @@ export class SyncEngine {
       if (remoteSha !== preview.remoteSha) {
         throw new Error('The repository changed after the preview. Review its latest files before syncing.');
       }
-      const encrypted = await prepareEncryptedBundle(this.vaultPath, this.settings);
+      const encrypted = await this.prepareEncryptedBundleSafely(`origin/${this.settings.branch}`);
       if (encrypted.needsRestore) throw new Error('Remote encrypted settings changed; restore and review them before uploading.');
       if (await this.localFingerprint() !== preview.localFingerprint) {
         throw new Error('Local notes or sync settings changed after the preview. Review the latest files before syncing.');
