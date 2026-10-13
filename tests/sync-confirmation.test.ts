@@ -1,3 +1,4 @@
+import { cleanFixtureRoots } from './fixture-cleanup';
 import { promises as fs } from 'node:fs';
 import { execFile } from 'node:child_process';
 import os from 'node:os';
@@ -9,7 +10,7 @@ import { DEFAULT_SETTINGS, GithubVaultSyncSettings, SyncPriority } from '../src/
 
 const exec = promisify(execFile);
 const roots: string[] = [];
-afterEach(async () => { await Promise.all(roots.splice(0).map((root) => fs.rm(root, { recursive: true, force: true }))); });
+afterEach(async () => { await cleanFixtureRoots(roots); });
 
 async function fixture() {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'github-vault-sync-preview-'));

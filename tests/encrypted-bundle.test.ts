@@ -1,3 +1,4 @@
+import { cleanFixtureRoots } from './fixture-cleanup';
 import { randomBytes } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import os from 'node:os';
@@ -8,7 +9,7 @@ import { ENCRYPTED_BUNDLE, generateRecoveryKey, inspectEncryptedBundle, prepareE
 import { DEFAULT_SETTINGS, GithubVaultSyncSettings } from '../src/types';
 
 const roots: string[] = [];
-afterEach(async () => { await Promise.all(roots.splice(0).map((root) => fs.rm(root, { recursive: true, force: true }))); });
+afterEach(async () => { await cleanFixtureRoots(roots); });
 
 function settings(key: string): GithubVaultSyncSettings {
   return { ...DEFAULT_SETTINGS, token: 'FAKE_TEST_CREDENTIAL_NOT_A_PROVIDER_TOKEN',

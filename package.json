@@ -7,7 +7,7 @@
     "build": "node esbuild.config.mjs production",
     "dev": "node esbuild.config.mjs development",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run --testTimeout 60000 --hookTimeout 30000 --maxWorkers 2"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

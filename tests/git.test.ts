@@ -1,3 +1,4 @@
+import { cleanFixtureRoots } from './fixture-cleanup';
 import { promises as fs } from 'node:fs';
 import { execFile } from 'node:child_process';
 import os from 'node:os';
@@ -11,7 +12,7 @@ const execFileAsync = promisify(execFile);
 const temporaryDirectories: string[] = [];
 
 afterEach(async () => {
-  await Promise.all(temporaryDirectories.splice(0).map((directory) => fs.rm(directory, { recursive: true, force: true })));
+  await cleanFixtureRoots(temporaryDirectories);
 });
 
 describe('GitService', () => {

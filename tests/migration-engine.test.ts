@@ -1,3 +1,4 @@
+import { cleanFixtureRoots } from './fixture-cleanup';
 import { promises as fs } from 'node:fs';
 import { execFile } from 'node:child_process';
 import os from 'node:os';
@@ -9,7 +10,7 @@ import { DEFAULT_SETTINGS, RepoBinding } from '../src/types';
 
 const exec = promisify(execFile);
 const cleanup: string[] = [];
-afterEach(async () => { await Promise.all(cleanup.splice(0).map((p) => fs.rm(p, { recursive: true, force: true }))); });
+afterEach(async () => { await cleanFixtureRoots(cleanup); });
 
 async function fixture(conflictingFolder = false) {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'gvs-migration-'));
@@ -66,7 +67,10 @@ describe('different Vault generations with unrelated histories', () => {
     expect(await fs.readFile(path.join(vault, 'Notes/conflict.md'), 'utf8')).toBe(before);
     const copyDir = (await fs.readdir(root)).find((name) => name.startsWith('new-vault-GitHub-copy-'));
     expect(copyDir).toBeDefined();
-    expect(await fs.readFile(path.join(root, copyDir!, 'Notes/conflict.md'), 'utf8')).toBe('# old device\n');
+    // Windows Git commonly checks Markdown out as CRLF (core.autocrlf);
+    // this copy's note content must be the same regardless of checkout EOL.
+    expect((await fs.readFile(path.join(root, copyDir!, 'Notes/conflict.md'), 'utf8')).replace(/\r\n/g, '\n'))
+      .toBe('# old device\n');
   });
 
   it('merges unique files and flags only differing same-path notes or config, not equal notes', async () => {

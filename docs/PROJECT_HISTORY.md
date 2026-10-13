@@ -161,3 +161,8 @@ pnpm build
 - 恢复密钥与恢复备份路径按 macOS 用户库／Windows Roaming AppData／Linux XDG 数据目录选择；macOS 等 POSIX 以 0600/0700 限制本地密钥文件，Windows 依赖用户配置文件 ACL，不能用 `chmod` 模拟同等保证。单一 ZIP 的目录和内容在 Windows、macOS 相同，包不捆绑用户 `data.json` 或 Node.js。
 - 验证分层：Mac 本机 TypeScript、临时 Git/Git LFS 测试、构建、隔离浏览器 UI 预检；仓库 CI 在 Windows/macOS 执行同组代码与归档一致性检查（以真实 GitHub Actions 结果为准）。CI 无 Obsidian 图形桌面，不能把 Windows runner 的源码测试称为 Windows 原生 Obsidian GUI 验收。
 - 对话复盘要点：先冻结用户最新圈注并标记被替代的旧断言；确认真实安装产物与 `data.json` 边界；分离按钮可见区和命中区；浅深色、长路径、窄窗、键盘、减少动效分别验证；不能因“调 UI”省去隐私审核、打包白名单和发布回读。原始图片/对话和真实 Vault 留在用户本机。
+
+### v0.1.2 Windows CI 首轮发现与修复（2026-10-13）
+
+- 不用本机 macOS 单测结果推断 Windows 已通过：第一轮 Windows runner 的临时 Git/LFS 集成测试超过 Vitest 默认每项 5 秒，超时后子进程仍持有临时目录句柄，使测试清理报 `EBUSY`；某一从 Git clone 得到的 Markdown 在 Windows 默认 checkout 下以 CRLF 写入工作树，而测试曾硬断言 LF。源码类型检查和 Git LFS 环境检查当时已通过，但该次运行**不计为跨平台通过**。
+- 后续将集成测试时限与并发量设为能反映 Windows runner Git 启动成本的范围，针对仅测试创建的临时 Git 目录做有限次数 `EBUSY` 重试；临时 askpass 清理也使用有限重试。对“同篇笔记”的断言允许 Git checkout 的 CRLF 表示，**不是默默把用户笔记转为 LF，更不以清理失败掩盖真实逻辑错误**。最终须以修订后真实 Windows/macOS CI 成功作为跨平台代码测试证据，仍不声称 Windows Obsidian GUI 实机已验证。

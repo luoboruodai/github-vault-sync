@@ -322,7 +322,7 @@ export async function ensureDirectory(directory: string): Promise<void> {
 }
 
 export async function removeIfExists(target: string): Promise<void> {
-  await fs.rm(target, { recursive: true, force: true });
+  await fs.rm(target, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 });
 }
 
 export async function copyDirectory(source: string, destination: string): Promise<void> {

@@ -1,3 +1,4 @@
+import { cleanFixtureRoots } from './fixture-cleanup';
 import { promises as fs } from 'node:fs';
 import { execFile } from 'node:child_process';
 import os from 'node:os';
@@ -10,7 +11,7 @@ import { DEFAULT_SETTINGS, SyncSnapshot } from '../src/types';
 
 const exec = promisify(execFile);
 const roots: string[] = [];
-afterEach(async () => { await Promise.all(roots.splice(0).map((root) => fs.rm(root, { recursive: true, force: true }))); });
+afterEach(async () => { await cleanFixtureRoots(roots); });
 
 describe('initial upload retry', () => {
   it('pushes a local checkpoint to an empty remote instead of fetching a nonexistent branch', async () => {
