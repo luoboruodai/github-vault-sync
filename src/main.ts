@@ -713,7 +713,10 @@ class GithubVaultSyncSettingTab extends PluginSettingTab {
     const card = container.createDiv({ cls: 'github-vault-sync-card' });
     if (section) card.id = `gvs-settings-${section}`;
     const header = card.createDiv({ cls: 'github-vault-sync-card-header' });
-    header.createEl('h3', { text: title });
+    // Some themes add indentation/decorations to h3. Keep heading semantics
+    // without inheriting those document-heading styles in plugin settings.
+    header.createDiv({ cls: 'github-vault-sync-card-title', text: title,
+      attr: { role: 'heading', 'aria-level': '3' } });
     if (description) header.createEl('p', { text: description });
     return card;
   }

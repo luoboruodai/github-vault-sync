@@ -215,13 +215,17 @@
   border-bottom: 1px solid var(--background-modifier-border);
   background: color-mix(in srgb, var(--background-secondary) 46%, var(--background-primary));
 }
-.github-vault-sync-card-header h3 {
+.github-vault-sync-card-title {
+  display: block;
   margin: 0;
+  padding: 0;
+  border: 0;
   color: var(--text-normal);
   font-size: 1.25rem;
   font-weight: 650;
   line-height: 1.32;
   letter-spacing: -.01em;
+  text-align: start;
 }
 .github-vault-sync-card-header p {
   max-width: 72ch;
