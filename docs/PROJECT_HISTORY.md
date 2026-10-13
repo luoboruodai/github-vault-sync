@@ -166,3 +166,13 @@ pnpm build
 
 - 不用本机 macOS 单测结果推断 Windows 已通过：第一轮 Windows runner 的临时 Git/LFS 集成测试超过 Vitest 默认每项 5 秒，超时后子进程仍持有临时目录句柄，使测试清理报 `EBUSY`；某一从 Git clone 得到的 Markdown 在 Windows 默认 checkout 下以 CRLF 写入工作树，而测试曾硬断言 LF。源码类型检查和 Git LFS 环境检查当时已通过，但该次运行**不计为跨平台通过**。
 - 后续将集成测试时限与并发量设为能反映 Windows runner Git 启动成本的范围，针对仅测试创建的临时 Git 目录做有限次数 `EBUSY` 重试；临时 askpass 清理也使用有限重试。对“同篇笔记”的断言允许 Git checkout 的 CRLF 表示，**不是默默把用户笔记转为 LF，更不以清理失败掩盖真实逻辑错误**。最终须以修订后真实 Windows/macOS CI 成功作为跨平台代码测试证据，仍不声称 Windows Obsidian GUI 实机已验证。
+
+## v0.1.3 开发预览：第二设备部署与跨平台问题（2026-10-14，未发布）
+
+本节是对用户提供的第二设备部署 debug 记录的公开脱敏摘要；原始 PDF、完整凭据、Windows 路径、截图和 Vault 内容不进入公开仓库。
+
+- **授权与安全**：第二设备应使用只允许目标私有笔记仓库读写的 PAT；公开插件源码仓库与私有笔记仓库必须明确区分。PAT 和恢复密钥不写日志/公开文档，第二设备不应代输账号密码。导入恢复密钥后先读取远端密文包，完成人工恢复后再决定是否启用该设备的加密镜像，避免空配置包覆盖主设备或因设备 PAT 不同形成摘要乒乓。
+- **旧版策略迁移**：启动时将强制安全排除规则与用户自定义规则合并去重，避免旧原型/旧主设备缺少 `.obsidian/plugins/**/data.json`、临时密文包和常见凭据文件规则时产生明文漂移。远端检测到明文插件 `data.json` 时阻止拉取并给出专门提示。
+- **Git/LFS 与网络**：远程优先克隆先关闭 LFS smudge，再本地初始化 LFS 并显式 pull 对象；无 LFS 但远端含指针时明确阻止。Git 支持仓库级 HTTP/HTTPS/SOCKS 代理，不污染远端 URL；网络错误区分代理/连接问题和 GitHub 认证问题。大附件只在有 Git LFS 规则和对象配额时继续。
+- **错误与宿主**：错误记录时间并在成功检查后清除，方便区分旧错误与当前状态。Obsidian/Electron 壳版本可能影响 `color-mix()` 和 `prefers-reduced-motion`，设置页增加局部 CSS 回退；不把主题一致等同于 Electron 壳一致。
+- **验证结论**：已新增设置迁移、代理参数、加密摘要、第二设备空密文包门禁等测试；v0.1.3 仍是本地开发预览，公开 v0.1.2 tag/Release 不移动。Windows CI 仍不等同于 Windows Obsidian GUI 实机验收。

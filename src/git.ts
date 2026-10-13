@@ -69,6 +69,15 @@ export function parseGitTransferProgress(text: string): GitTransferProgress | nu
   return latest;
 }
 
+export function withGitHttpProxy(args: readonly string[], proxy = ''): string[] {
+  const value = proxy.trim();
+  return value ? ['-c', `http.proxy=${value}`, ...args] : [...args];
+}
+
+export function isGitNetworkError(stderr: string): boolean {
+  return /(could not resolve host|couldn't resolve host|failed to connect|connection (?:was )?reset|connection timed out|network is unreachable|unable to access)/i.test(stderr);
+}
+
 export class GitService {
   private gitExecutable = 'git';
   private gitLfsAvailable = false;
@@ -145,8 +154,9 @@ export class GitService {
         env.GITHUB_VAULT_SYNC_USERNAME = 'oauth2';
       }
 
+      const commandArgs = withGitHttpProxy(args, this.settings.gitHttpProxy);
       return await new Promise<GitCommandResult>((resolve, reject) => {
-        const child = spawn(command, args, {
+        const child = spawn(command, commandArgs, {
           cwd: options.cwd ?? this.vaultPath,
           env,
           shell: false,
@@ -159,7 +169,7 @@ export class GitService {
         const timer = setTimeout(() => {
           if (settled) return;
           child.kill(process.platform === 'win32' ? undefined : 'SIGTERM');
-          const timeoutError = new Error(`Git command timed out after ${Math.round(timeoutMs / 1000)}s: ${args.join(' ')}`);
+          const timeoutError = new Error(`Git command timed out after ${Math.round(timeoutMs / 1000)}s: ${commandArgs.join(' ')}`);
           settled = true;
           reject(timeoutError);
         }, timeoutMs);
@@ -198,8 +208,14 @@ export class GitService {
     const result = await this.runRaw(this.gitExecutable, args, options);
     if (result.code !== 0 && !options.allowFailure) {
       const safeArgs = args.map((arg) => (this.authToken && arg.includes(this.authToken) ? '[REDACTED]' : arg));
+      const stderr = redact(result.stderr.toString('utf8'), this.authToken);
+      const networkHint = isGitNetworkError(stderr)
+        ? (this.settings.gitHttpProxy
+          ? `\n网络连接失败；当前已使用 Git HTTP 代理 ${this.settings.gitHttpProxy}，请检查代理是否仍在运行。`
+          : '\n网络连接失败；请在高级设置填写 Git HTTP 代理，或检查 GitHub 端点与防火墙。')
+        : '';
       throw new GitCommandError(
-        `Git command failed (${result.code}): ${safeArgs.join(' ')}\n${redact(result.stderr.toString('utf8'), this.authToken)}`,
+        `Git command failed (${result.code}): ${safeArgs.join(' ')}\n${stderr}${networkHint}`,
         args,
         result.code,
         result.stdout,

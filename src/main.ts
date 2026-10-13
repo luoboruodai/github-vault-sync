@@ -17,6 +17,7 @@ import { SyncEngine } from './sync-engine';
 import { CurrentNotePlan, embeddedAttachmentPaths } from './current-note';
 import { isMarkdownNote } from './sync-preview';
 import { nextSettingsTab, SETTINGS_TABS, SettingsSection, showSettingsTab } from './settings-tabs';
+import { normalizeHttpProxy, normalizeSettings } from './settings';
 import {
   ConflictChoice,
   DEFAULT_EXCLUDE_PATTERNS,
@@ -107,6 +108,10 @@ function renderSyncSummary(container: HTMLElement, snapshot: SyncSnapshot): void
     container.appendChild(progress);
     if (snapshot.progress !== undefined) container.createEl('small', { cls: 'github-vault-sync-progress-label', text: `当前阶段 ${snapshot.progress}%` });
   }
+  if (snapshot.error) {
+    container.createEl('p', { cls: 'github-vault-sync-error-text',
+      text: `错误${snapshot.errorAt ? `（${formatDateTime(snapshot.errorAt)}）` : ''}：${snapshot.error}` });
+  }
   if (snapshot.encryptedNeedsRestore) {
     container.createEl('p', { cls: 'github-vault-sync-error-text',
       text: '远端加密配置已更新；请导入恢复密钥并手动恢复，自动同步暂时暂停。' });
@@ -135,10 +140,10 @@ export default class GithubVaultSyncPlugin extends Plugin {
 
   async onload(): Promise<void> {
     const loaded = await this.loadData() as Partial<GithubVaultSyncSettings> | null;
-    this.settings = { ...DEFAULT_SETTINGS, ...(loaded ?? {}), excludePatterns: [...DEFAULT_SETTINGS.excludePatterns], lfsPatterns: [...DEFAULT_SETTINGS.lfsPatterns] };
-    if (loaded?.excludePatterns) this.settings.excludePatterns = loaded.excludePatterns;
-    if (loaded?.lfsPatterns) this.settings.lfsPatterns = loaded.lfsPatterns;
+    const normalized = normalizeSettings(loaded);
+    this.settings = normalized.settings;
     this.vaultPath = vaultBasePath(this.app);
+    if (normalized.changed) await this.saveSensitiveSettings();
     this.engine = new SyncEngine(
       this.vaultPath,
       this.settings,
@@ -322,6 +327,12 @@ export default class GithubVaultSyncPlugin extends Plugin {
   async enableEncryptedSync(): Promise<void> {
     try {
       if (!this.settings.repo?.private) throw new Error('先绑定 GitHub 私有仓库');
+      const remoteState = await this.engine.checkRemote();
+      const remoteSnapshot = this.engine.getSnapshot();
+      const remoteBundleChanged = remoteSnapshot.changedFiles.some((item) => item.path === ENCRYPTED_BUNDLE && item.remoteStatus);
+      if (remoteState.ok && (remoteSnapshot.encryptedNeedsRestore || (remoteBundleChanged && !this.settings.encryptionKey))) {
+        throw new Error('远端已有加密配置包，请先导入恢复密钥并解密恢复，避免本机空配置覆盖远端');
+      }
       const previousKey = this.settings.encryptionKey;
       const previousFolders = [...(this.settings.encryptedFolders ?? [])];
       try {
@@ -356,9 +367,11 @@ export default class GithubVaultSyncPlugin extends Plugin {
       try {
         if (!this.settings.encryptedFolders?.length) this.settings.encryptedFolders = ['obsidian-memos', 'obsidian-callout-editor'];
         const recoveryPath = await writeRecoveryKeyFile(this.settings);
-        this.settings.encryptedSyncEnabled = true;
+        // Importing a key is a restore prerequisite. Do not start producing a
+        // local encrypted bundle before the remote bundle has been reviewed.
+        this.settings.encryptedSyncEnabled = false;
         await this.saveSensitiveSettings();
-        new Notice(`恢复密钥已导入并保存到本机：${recoveryPath}`, 8000);
+        new Notice(`恢复密钥已导入并保存到本机：${recoveryPath}。请先解密并恢复，暂不会上传本机配置。`, 9000);
       } catch (error) { this.settings.encryptionKey = previous; throw error; }
     } catch (error) {
       new Notice(`导入失败：${error instanceof Error ? error.message : String(error)}`, 10000);
@@ -760,9 +773,9 @@ class GithubVaultSyncSettingTab extends PluginSettingTab {
     new Setting(privacy)
       .setName('恢复密钥')
       .setDesc('明确点击后显示完整密钥并支持复制；关闭窗口后隐藏。')
-      .addButton((button) => button.setButtonText(this.plugin.settings.encryptedSyncEnabled ? '查看并复制' : '启用加密')
+      .addButton((button) => button.setButtonText(this.plugin.settings.encryptionKey ? '查看并复制' : '启用加密')
         .setDisabled(!this.plugin.settings.repo)
-        .onClick(() => void (this.plugin.settings.encryptedSyncEnabled ? this.plugin.showRecoveryFile() : this.plugin.enableEncryptedSync())));
+        .onClick(() => void (this.plugin.settings.encryptionKey ? this.plugin.showRecoveryFile() : this.plugin.enableEncryptedSync())));
     if (!this.plugin.settings.encryptionKey) {
       let recoveryInput = '';
       new Setting(privacy)
@@ -854,6 +867,19 @@ class GithubVaultSyncSettingTab extends PluginSettingTab {
           await this.plugin.saveSensitiveSettings();
         });
       });
+
+    new Setting(scope)
+      .setName('Git HTTP 代理（可选）')
+      .setDesc('仅影响 Git/Git LFS 网络请求，不写入远端 URL；例如 Windows 上的 http://127.0.0.1:7897。网络直连正常时留空。')
+      .addText((text) => text.setPlaceholder('http://127.0.0.1:7897').setValue(this.plugin.settings.gitHttpProxy)
+        .onChange(async (value) => {
+          try {
+            this.plugin.settings.gitHttpProxy = normalizeHttpProxy(value);
+            await this.plugin.saveSensitiveSettings();
+          } catch (error) {
+            new Notice(error instanceof Error ? error.message : String(error), 7000);
+          }
+        }));
 
     const tools = this.card(container, '提交信息与工具', '这些选项只影响本地 Git 提交和诊断，不会改变同步冲突策略。');
     new Setting(tools)

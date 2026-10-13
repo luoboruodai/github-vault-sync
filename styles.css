@@ -596,3 +596,42 @@
   .github-vault-sync-ribbon:hover,
   .github-vault-sync-note-compare:hover { transform: none; }
 }
+
+/* Compatibility fallback for older Electron shells that lack CSS color-mix().
+   Modern shells keep the token-aware declarations above; older shells retain
+   the same hierarchy and interaction states instead of falling back to native
+   Obsidian button chrome with a visibly different baseline. */
+@supports not (background: color-mix(in srgb, red 10%, blue)) {
+  .github-vault-sync-hero,
+  .github-vault-sync-card { border-color: var(--background-modifier-border); background: var(--background-primary); }
+  .github-vault-sync-health,
+  .github-vault-sync-section-link,
+  .github-vault-sync-summary,
+  .github-vault-sync-card-header { background: var(--background-secondary); }
+  .github-vault-sync-section-link:hover { background: var(--background-modifier-hover); }
+  .github-vault-sync-section-link[aria-selected='true'] { background: var(--background-modifier-hover); color: var(--text-accent); }
+  .github-vault-sync-section-link:active { background: var(--background-modifier-hover); }
+  .github-vault-sync-card > .setting-item { border-color: var(--background-modifier-border); }
+  .github-vault-sync-settings-page .setting-item-control button,
+  .github-vault-sync-modal .setting-item-control button {
+    border-color: var(--background-modifier-border);
+    background: var(--background-secondary);
+  }
+  .github-vault-sync-settings-page .setting-item-control button:hover:not(:disabled),
+  .github-vault-sync-modal .setting-item-control button:hover:not(:disabled) {
+    border-color: var(--interactive-accent);
+    background: var(--background-modifier-hover);
+  }
+  .github-vault-sync-settings-page .setting-item-control button.mod-warning,
+  .github-vault-sync-modal .setting-item-control button.mod-warning {
+    border-color: var(--text-error);
+    background: var(--background-secondary);
+  }
+  .github-vault-sync-settings-page .setting-item-control button:hover:not(:disabled),
+  .github-vault-sync-modal .setting-item-control button:hover:not(:disabled) {
+    box-shadow: 0 3px 8px var(--background-modifier-border);
+  }
+  .github-vault-sync-card:focus-within,
+  .github-vault-sync-card > .setting-item:focus-within,
+  .github-vault-sync-preview-group:focus-within { border-color: var(--interactive-accent); }
+}

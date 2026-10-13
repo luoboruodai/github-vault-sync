@@ -66,7 +66,8 @@ export class SyncEngine {
         conflicts: settings.pendingMerge.conflicts };
     } else if (settings.repo) {
       this.snapshot = { ...this.snapshot, health: settings.lastStatus === 'unconfigured' ? 'checking' : settings.lastStatus,
-        message: settings.lastStatus === 'synced' ? '上次同步完成，正在等待检查' : '仓库已绑定，等待状态检查' };
+        message: settings.lastStatus === 'synced' ? '上次同步完成，正在等待检查' : '仓库已绑定，等待状态检查',
+        error: settings.lastError || undefined, errorAt: settings.lastErrorAt || undefined };
     }
   }
 
@@ -154,7 +155,9 @@ export class SyncEngine {
     const forbidden = [...DEFAULT_EXCLUDE_PATTERNS, ...(this.settings.includeObsidian ? [] : ['.obsidian/**']), ...this.settings.excludePatterns];
     for (const file of remoteFiles) {
       if (!isSafeRelativePath(file) || matchesAnyPattern(file, forbidden) || isLikelySensitivePath(file)) {
-        throw new Error(`Remote contains an excluded or unsafe path: ${file}. Review the repository before pulling.`);
+        const plaintextConfig = /^\.obsidian\/plugins\/[^/]+\/data\.json$/i.test(file);
+        const reason = plaintextConfig ? 'Remote contains plaintext plugin data.json' : 'Remote contains an excluded or unsafe path';
+        throw new Error(`${reason}: ${file}. Review the repository and upgrade its sync policy before pulling.`);
       }
     }
     return remoteFiles;
@@ -181,6 +184,13 @@ export class SyncEngine {
       size: fileMap.get(file)?.size
     }));
     return { difference, changedFiles };
+  }
+
+  private async hasLocalEncryptedBundle(): Promise<boolean> {
+    try {
+      await fs.access(path.join(this.vaultPath, ENCRYPTED_BUNDLE));
+      return true;
+    } catch { return false; }
   }
 
   private async ensureDependencies(requireLfs: boolean): Promise<void> {
@@ -276,8 +286,21 @@ export class SyncEngine {
       const parent = path.dirname(this.vaultPath);
       const prefix = path.join(parent, `${path.basename(this.vaultPath)}-GitHub-copy-`);
       destination = await fs.mkdtemp(prefix);
-      await this.git.run(['clone', '--single-branch', '--branch', binding.branch, binding.remoteUrl, destination],
+      const dependencies = await this.dependencies();
+      if (!dependencies.git.available) throw new Error('Git is required before cloning the remote Vault');
+      // Avoid relying on a global Git LFS smudge filter. Clone first without
+      // smudging, then install the local filter and pull objects explicitly.
+      await this.git.run(['-c', 'filter.lfs.smudge=', '-c', 'filter.lfs.required=false',
+        'clone', '--single-branch', '--branch', binding.branch, binding.remoteUrl, destination],
         { cwd: parent, timeoutMs: 3 * 60 * 60 * 1000 });
+      if (dependencies.gitLfs.available) {
+        await this.git.run(['lfs', 'install', '--local'], { cwd: destination, timeoutMs: 30_000 });
+        await this.git.run(['lfs', 'pull', 'origin', binding.branch], { cwd: destination, timeoutMs: 3 * 60 * 60 * 1000 });
+      } else {
+        const pointer = await this.git.run(['grep', '-I', '-l', '^version https://git-lfs.github.com/spec/v1$', 'HEAD'],
+          { cwd: destination, allowFailure: true });
+        if (pointer.code === 0) throw new Error('Git LFS is required to clone this Vault because the remote contains LFS files. Install Git LFS and retry.');
+      }
       const copied = (await this.git.text(['rev-parse', 'HEAD'], { cwd: destination })).trim();
       if (copied !== expectedSha) {
         preserveCopy = true;
@@ -679,11 +702,17 @@ export class SyncEngine {
       await this.ensureRepo(this.settings.repo);
       const deps = await this.dependencies();
       if (!deps.git.available) throw new Error('Git is required');
-      const encrypted = await prepareEncryptedBundle(this.vaultPath, this.settings);
+      // Fetch and validate the remote before creating a local encrypted bundle.
+      // On a second device, an empty local bundle must never overwrite the
+      // already-authoritative remote bundle during a read-only check.
       await this.git.fetch(this.settings.branch);
       const remoteRef = `origin/${this.settings.branch}`;
       const remoteSha = await this.git.refSha(remoteRef);
       if (!remoteSha) throw new Error(`Remote branch ${this.settings.branch} does not exist`);
+      const remotePaths = await this.validatedRemotePaths(remoteRef);
+      const encrypted = !await this.hasLocalEncryptedBundle() && remotePaths.has(ENCRYPTED_BUNDLE) && this.settings.encryptionKey
+        ? { changed: false, entries: 0, needsRestore: true }
+        : await prepareEncryptedBundle(this.vaultPath, this.settings);
       const scan = await scanVault(this.vaultPath, this.settings);
       this.validateScan(scan);
       this.scanResult = scan;
@@ -880,12 +909,13 @@ export class SyncEngine {
 
   private complete(message: string, warnings: string[] = []): SyncResult {
     this.settings.lastError = '';
+    this.settings.lastErrorAt = '';
     this.update({ phase: 'completed', health: 'synced', message, warnings,
       progress: 100, progressDetail: '同步完成', changedFiles: [], encryptedNeedsRestore: false,
       difference: { localChanged: 0, remoteChanged: 0, differingPaths: 0,
         totalPaths: this.scanResult?.included.length ?? this.snapshot.difference?.totalPaths ?? 0,
         differencePercent: 0, checkedAt: new Date().toISOString() },
-      error: undefined, conflicts: [] });
+      error: undefined, errorAt: undefined, conflicts: [] });
     return { ok: true, message, changedFiles: this.snapshot.changedFiles, conflicts: [], warnings };
   }
 
@@ -909,12 +939,14 @@ export class SyncEngine {
 
   private async fail(error: unknown): Promise<SyncResult> {
     const message = this.errorMessage(error);
+    const errorAt = new Date().toISOString();
     this.settings.lastError = message;
+    this.settings.lastErrorAt = errorAt;
     this.settings.lastStatus = this.settings.pendingMerge ? 'conflicts' : 'error';
     await this.persist();
     this.log('error', message);
     this.update({ phase: 'error', health: this.settings.pendingMerge ? 'conflicts' : 'error', message,
-      progress: undefined, progressDetail: undefined, error: message });
+      progress: undefined, progressDetail: undefined, error: message, errorAt });
     return { ok: false, message, changedFiles: [], conflicts: this.settings.pendingMerge?.conflicts ?? [], warnings: [] };
   }
 }

@@ -36,4 +36,8 @@ jobs:
       - run: pnpm test
       - run: pnpm build
       - name: Check packaged files match this source and build
+        if: startsWith(github.ref, 'refs/tags/v')
         run: python scripts/release_archive.py verify
+      - name: Explain package check is deferred for main/PR development builds
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        run: echo 'No release ZIP is required for an unreleased development commit; tag CI enforces the archive check.'

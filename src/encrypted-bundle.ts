@@ -119,11 +119,36 @@ async function collectFiles(vaultPath: string, settings: GithubVaultSyncSettings
   return entries;
 }
 
+function digestPayload(payload: Payload, recoveryKey: string): string {
+  // Credentials identify a device, not the shared encrypted configuration.
+  // Excluding them from the digest prevents two devices with different PATs
+  // from continuously replacing the same encrypted bundle. The ciphertext
+  // still retains them for the explicit "full restore" action.
+  const digestPayload = {
+    ...payload,
+    entries: payload.entries.map((entry) => {
+      if (entry.path !== '.obsidian/plugins/github-vault-sync/data.json') return entry;
+      try {
+        const config = JSON.parse(Buffer.from(entry.data, 'base64').toString('utf8')) as Record<string, unknown>;
+        for (const key of ['token', 'authType', 'oauthClientId', 'gitHttpProxy']) delete config[key];
+        return { ...entry, data: Buffer.from(`${JSON.stringify(canonicalJson(config))}\n`, 'utf8').toString('base64') };
+      } catch { return entry; }
+    })
+  };
+  const plain = Buffer.from(JSON.stringify(digestPayload), 'utf8');
+  return createHmac('sha256', decodeKey(recoveryKey)).update(plain).digest('hex');
+}
+
+function legacyDigestPayload(payload: Payload, recoveryKey: string): string {
+  const plain = Buffer.from(JSON.stringify(payload), 'utf8');
+  return createHmac('sha256', decodeKey(recoveryKey)).update(plain).digest('hex');
+}
+
 function encryptPayload(payload: Payload, recoveryKey: string): Envelope {
   const key = decodeKey(recoveryKey);
   const plain = Buffer.from(JSON.stringify(payload), 'utf8');
   if (plain.length > MAX_ARCHIVE_BYTES) throw new Error('Encrypted archive is too large');
-  const digest = createHmac('sha256', key).update(plain).digest('hex');
+  const digest = digestPayload(payload, recoveryKey);
   const nonce = randomBytes(12);
   const cipher = createCipheriv('aes-256-gcm', key, nonce);
   cipher.setAAD(AAD);
@@ -146,10 +171,13 @@ function decryptPayload(envelope: Envelope, recoveryKey: string): Payload {
   decipher.setAuthTag(tag);
   const zipped = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
   const plain = gunzipSync(zipped, { maxOutputLength: MAX_ARCHIVE_BYTES });
-  const expected = createHmac('sha256', key).update(plain).digest();
-  const actual = Buffer.from(envelope.digest, 'hex');
-  if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) throw new Error('Encrypted bundle checksum mismatch');
   const parsed = JSON.parse(plain.toString('utf8')) as Payload;
+  const expected = Buffer.from(digestPayload(parsed, recoveryKey), 'hex');
+  const legacyExpected = Buffer.from(legacyDigestPayload(parsed, recoveryKey), 'hex');
+  const actual = Buffer.from(envelope.digest, 'hex');
+  const matchesNormalized = actual.length === expected.length && timingSafeEqual(actual, expected);
+  const matchesLegacy = actual.length === legacyExpected.length && timingSafeEqual(actual, legacyExpected);
+  if (!matchesNormalized && !matchesLegacy) throw new Error('Encrypted bundle checksum mismatch');
   if (parsed.version !== 1 || !Array.isArray(parsed.entries) || parsed.entries.length !== envelope.entries) {
     throw new Error('Invalid encrypted bundle payload');
   }
@@ -180,8 +208,7 @@ export async function prepareEncryptedBundle(vaultPath: string, settings: Github
   if (!settings.encryptedSyncEnabled) return { changed: false, entries: 0, needsRestore: false };
   if (!settings.encryptionKey) throw new Error('Encrypted synchronization requires a local recovery key');
   const payload: Payload = { version: 1, entries: await collectFiles(vaultPath, settings) };
-  const plain = Buffer.from(JSON.stringify(payload), 'utf8');
-  const digest = createHmac('sha256', decodeKey(settings.encryptionKey)).update(plain).digest('hex');
+  const digest = digestPayload(payload, settings.encryptionKey);
   const target = path.join(vaultPath, ENCRYPTED_BUNDLE);
   try {
     const old = await readEnvelope(target);
@@ -189,6 +216,21 @@ export async function prepareEncryptedBundle(vaultPath: string, settings: Github
     if (old.digest === digest) {
       settings.encryptionLastDigest = digest;
       return { changed: false, entries: payload.entries.length, needsRestore: false };
+    }
+    // v0.1.2 included device credentials in the digest. If the normalized
+    // content is otherwise equal, rewrite once to the v0.1.3 digest scheme
+    // instead of treating a legacy envelope as a credentials conflict.
+    const oldPayload = decryptPayload(old, settings.encryptionKey);
+    if (digestPayload(oldPayload, settings.encryptionKey) === digest) {
+      const migrated = encryptPayload(payload, settings.encryptionKey);
+      await ensureDirectory(path.dirname(target));
+      const migrationTemp = `${target}.tmp-${process.pid}`;
+      try {
+        await fs.writeFile(migrationTemp, `${JSON.stringify(migrated)}\n`, { encoding: 'utf8', mode: 0o600 });
+        await fs.rename(migrationTemp, target);
+      } finally { await fs.rm(migrationTemp, { force: true }); }
+      settings.encryptionLastDigest = digest;
+      return { changed: true, entries: payload.entries.length, needsRestore: false };
     }
     if (!settings.encryptionLastDigest) {
       return { changed: false, entries: payload.entries.length, needsRestore: true };

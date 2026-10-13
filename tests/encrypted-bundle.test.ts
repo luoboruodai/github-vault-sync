@@ -36,6 +36,23 @@ async function fixture() {
 }
 
 describe('client-side encrypted plugin backup', () => {
+  it('does not churn the shared digest when device credentials differ', async () => {
+    const vault = await fs.mkdtemp(path.join(os.tmpdir(), 'github-vault-sync-digest-'));
+    roots.push(vault);
+    await fs.mkdir(path.join(vault, '.obsidian', 'plugins', 'github-vault-sync'), { recursive: true });
+    const key = generateRecoveryKey();
+    const base = settings(key);
+    await fs.writeFile(path.join(vault, '.obsidian', 'plugins', 'github-vault-sync', 'data.json'), JSON.stringify({ token: 'DEVICE_A', authType: 'pat', gitHttpProxy: '', repo: base.repo }));
+    const first = await prepareEncryptedBundle(vault, base);
+    expect(first.changed).toBe(true);
+    const digest = base.encryptionLastDigest;
+    await fs.writeFile(path.join(vault, '.obsidian', 'plugins', 'github-vault-sync', 'data.json'), JSON.stringify({ token: 'DEVICE_B', authType: 'pat', gitHttpProxy: 'http://127.0.0.1:7897', repo: base.repo }));
+    const second = { ...base, token: 'DEVICE_B', authType: 'pat' as const, gitHttpProxy: 'http://127.0.0.1:7897', encryptionLastDigest: digest };
+    const result = await prepareEncryptedBundle(vault, second);
+    expect(result.changed).toBe(false);
+    expect(second.encryptionLastDigest).toBe(digest);
+  });
+
   it('encrypts plugin settings and both exceptional directories; restores without plaintext in Git', async () => {
     const vault = await fixture();
     const key = generateRecoveryKey();

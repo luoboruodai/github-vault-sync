@@ -54,6 +54,7 @@ export interface GithubVaultSyncSettings {
   startupCheck: boolean;
   autoSyncEnabled: boolean;
   autoSyncDelaySeconds: number;
+  gitHttpProxy: string;
   encryptedSyncEnabled: boolean;
   encryptionKey: string;
   encryptedFolders: string[];
@@ -68,6 +69,7 @@ export interface GithubVaultSyncSettings {
   lastRemoteSha: string;
   lastStatus: SyncHealth;
   lastError: string;
+  lastErrorAt: string;
   pendingMerge: PendingMerge | null;
   logEntries: LogEntry[];
 }
@@ -208,6 +210,7 @@ export interface SyncSnapshot {
   conflicts: ConflictItem[];
   warnings: string[];
   error?: string;
+  errorAt?: string;
 }
 
 export interface LogEntry {
@@ -274,7 +277,7 @@ export const DEFAULT_LFS_PATTERNS = [
 ];
 
 export const DEFAULT_SETTINGS: GithubVaultSyncSettings = {
-  schemaVersion: 1,
+  schemaVersion: 2,
   oauthClientId: '',
   token: '',
   authType: null,
@@ -282,6 +285,7 @@ export const DEFAULT_SETTINGS: GithubVaultSyncSettings = {
   startupCheck: true,
   autoSyncEnabled: false,
   autoSyncDelaySeconds: 90,
+  gitHttpProxy: '',
   encryptedSyncEnabled: false,
   encryptionKey: '',
   encryptedFolders: [],
@@ -296,6 +300,7 @@ export const DEFAULT_SETTINGS: GithubVaultSyncSettings = {
   lastRemoteSha: '',
   lastStatus: 'unconfigured',
   lastError: '',
+  lastErrorAt: '',
   pendingMerge: null,
   logEntries: []
 };

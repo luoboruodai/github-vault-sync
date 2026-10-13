@@ -1,6 +1,10 @@
 # GitHub Vault Sync
 
-[简体中文](README.zh-CN.md) · [Developer history](docs/PROJECT_HISTORY.md)
+[简体中文](README.zh-CN.md)
+
+**v0.1.3 development preview:** second-device bootstrap, legacy policy migration, encrypted restore ordering, Git LFS hydration, per-repository proxy diagnostics, and cross-Electron CSS fallbacks are being validated locally. The public install release remains v0.1.2 until final acceptance.
+
+ · [Developer history](docs/PROJECT_HISTORY.md)
 
 **GitHub Vault Sync** is an Obsidian desktop plugin for synchronizing a vault with a **separate private GitHub repository**. This public repository contains only the plugin's source code and distributable releases. **Do not use this public repository for your notes or credentials.**
 

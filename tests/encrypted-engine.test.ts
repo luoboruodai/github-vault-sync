@@ -14,6 +14,29 @@ const roots: string[] = [];
 afterEach(async () => { await cleanFixtureRoots(roots); });
 
 describe('encrypted plugin content in Git synchronization', () => {
+  it('does not create a local empty encrypted bundle before reviewing a remote bundle', async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'github-vault-sync-encrypted-bootstrap-'));
+    roots.push(root);
+    const vault = path.join(root, 'vault');
+    const remote = path.join(root, 'remote.git');
+    const key = generateRecoveryKey();
+    await fs.mkdir(path.join(vault, '.obsidian', 'plugins', 'demo'), { recursive: true });
+    await fs.writeFile(path.join(vault, '.obsidian', 'plugins', 'demo', 'data.json'), '{"apiToken":"REMOTE_ONLY"}\n');
+    await fs.writeFile(path.join(vault, 'note.md'), '# safe\n');
+    await exec('git', ['init', '--bare', remote]);
+    const binding = { owner: 'local', name: 'remote', branch: 'main', remoteUrl: remote, private: true };
+    const settings = { ...DEFAULT_SETTINGS, token: '', includeObsidian: true, encryptedSyncEnabled: true,
+      encryptionKey: key, encryptedFolders: [], repo: binding };
+    const engine = new SyncEngine(vault, settings, async () => undefined, () => undefined, () => undefined);
+    expect((await engine.upload()).ok).toBe(true);
+    const bundle = path.join(vault, ENCRYPTED_BUNDLE);
+    await fs.unlink(bundle);
+    settings.encryptionLastDigest = '';
+    expect((await engine.checkRemote()).ok).toBe(true);
+    expect(engine.getSnapshot().encryptedNeedsRestore).toBe(true);
+    await expect(fs.stat(bundle)).rejects.toThrow();
+  });
+
   it('pushes only ciphertext and pauses when a newer encrypted bundle arrives from another device', async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), 'github-vault-sync-encrypted-engine-'));
     roots.push(root);

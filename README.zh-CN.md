@@ -1,6 +1,10 @@
 # GitHub Vault Sync
 
-[English](README.md) · [开发过程与交接记录](docs/PROJECT_HISTORY.md)
+[English](README.md)
+
+**v0.1.3 开发预览：**正在本地验证第二设备初始化、旧版策略迁移、加密恢复顺序、Git LFS 文件落地、仓库级代理诊断及跨 Electron CSS 回退。正式公开安装版本仍为 v0.1.2，待最终确认后再发布。
+
+ · [开发过程与交接记录](docs/PROJECT_HISTORY.md)
 
 **GitHub Vault Sync** 是 Obsidian 桌面端插件，可将笔记库同步到**另外一个由你控制的私有 GitHub 仓库**。本项目公开仓库只发布插件源码与安装包，**不要把笔记或凭据上传到本公开仓库**。
 
