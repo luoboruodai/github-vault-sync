@@ -107,7 +107,7 @@
 .github-vault-sync-brand-title {
   min-width: 0;
   color: var(--text-normal);
-  font-size: clamp(1.25rem, 2vw, 1.5rem);
+  font-size: clamp(1.375rem, 2vw, 1.625rem);
   font-weight: 650;
   line-height: 1.3;
   letter-spacing: -.01em;
@@ -207,24 +207,28 @@
   overflow: hidden;
   scroll-margin-block-start: 16px;
 }
+/* Header text, comparison title and setting labels follow one content edge:
+   32px (header), 16px margin + 3px border + 12px padding (summary),
+   16px margin + 1px border + 16px padding (setting row). */
 .github-vault-sync-card-header {
-  padding: 20px 24px 16px;
+  padding: 20px 32px 18px;
   border-bottom: 1px solid var(--background-modifier-border);
   background: color-mix(in srgb, var(--background-secondary) 46%, var(--background-primary));
 }
 .github-vault-sync-card-header h3 {
   margin: 0;
   color: var(--text-normal);
-  font-size: 1.08rem;
-  font-weight: 600;
-  line-height: 1.35;
+  font-size: 1.25rem;
+  font-weight: 650;
+  line-height: 1.32;
+  letter-spacing: -.01em;
 }
 .github-vault-sync-card-header p {
   max-width: 72ch;
-  margin: 4px 0 0;
+  margin: 8px 0 0;
   color: var(--text-muted);
-  font-size: var(--font-ui-small);
-  line-height: 1.45;
+  font-size: .875rem;
+  line-height: 1.5;
 }
 .github-vault-sync-card > .setting-item {
   min-width: 0;
@@ -240,7 +244,7 @@
 .github-vault-sync-card .setting-item-info { min-width: 0; padding-inline-end: 16px; }
 .github-vault-sync-card .setting-item-name {
   color: var(--text-normal);
-  font-size: var(--font-ui-small);
+  font-size: 1rem;
   font-weight: 550;
   line-height: 1.4;
   overflow-wrap: anywhere;
@@ -248,8 +252,8 @@
 .github-vault-sync-card .setting-item-description {
   margin-top: 4px;
   color: var(--text-muted);
-  font-size: var(--font-ui-small);
-  line-height: 1.45;
+  font-size: .875rem;
+  line-height: 1.5;
   overflow-wrap: anywhere;
 }
 .github-vault-sync-card .setting-item-control {
@@ -273,7 +277,7 @@
 .github-vault-sync-summary {
   min-width: 0;
   margin: 16px 0;
-  padding: 16px;
+  padding: 16px 12px;
   border: 1px solid var(--background-modifier-border);
   border-left: 3px solid var(--interactive-accent);
   border-radius: 12px;
@@ -286,6 +290,9 @@
   align-items: center;
   gap: 8px;
 }
+/* The card's accent border is the status cue; avoid a second dot shifting
+   its title away from the headings and setting labels. */
+.github-vault-sync-card > .github-vault-sync-summary .github-vault-sync-summary-dot { display: none; }
 .github-vault-sync-summary-dot { width: 7px; height: 7px; flex: 0 0 auto; border-radius: 50%; background: var(--text-faint); }
 .github-vault-sync-summary[data-health='synced'] .github-vault-sync-summary-dot { background: var(--text-success); }
 .github-vault-sync-summary[data-health='error'] .github-vault-sync-summary-dot,
@@ -294,10 +301,12 @@
   min-width: 0;
   margin: 0;
   color: var(--text-normal);
-  font-size: var(--font-ui-medium);
+  font-size: 1.04rem;
   font-weight: 600;
   line-height: 1.4;
   overflow-wrap: anywhere;
+  text-decoration: none;
+  border-bottom: 0;
 }
 .github-vault-sync-summary-live {
   padding: 2px 8px;
@@ -325,9 +334,11 @@
 .github-vault-sync-summary-metric strong {
   margin-top: 4px;
   color: var(--text-normal);
-  font-size: var(--font-ui-small);
+  font-size: 1rem;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
+  text-decoration: none;
+  border-bottom: 0;
 }
 .github-vault-sync-summary-caption,
 .github-vault-sync-summary-empty,
@@ -392,7 +403,7 @@
   .github-vault-sync-settings-page { gap: 16px; }
   .github-vault-sync-hero { padding: 16px; }
   .github-vault-sync-hero-repo .github-vault-sync-health { margin-inline-start: 0; }
-  .github-vault-sync-card-header { padding: 16px; }
+  .github-vault-sync-card-header { padding: 16px 28px 18px; }
   .github-vault-sync-card > .setting-item,
   .github-vault-sync-card > .github-vault-sync-summary { margin-inline: 12px; }
   .github-vault-sync-card .setting-item-info { padding-inline-end: 0; }
