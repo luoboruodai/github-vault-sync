@@ -623,6 +623,7 @@ export default class GithubVaultSyncPlugin extends Plugin {
 
 class GithubVaultSyncSettingTab extends PluginSettingTab {
   private unsubscribe?: () => void;
+  private sectionObserver?: IntersectionObserver;
 
   constructor(app: App, private readonly plugin: GithubVaultSyncPlugin) {
     super(app, plugin);
@@ -632,6 +633,8 @@ class GithubVaultSyncSettingTab extends PluginSettingTab {
     const { containerEl } = this;
     this.unsubscribe?.();
     this.unsubscribe = undefined;
+    this.sectionObserver?.disconnect();
+    this.sectionObserver = undefined;
     containerEl.empty();
     containerEl.addClass('github-vault-sync-settings-page');
 
@@ -639,7 +642,8 @@ class GithubVaultSyncSettingTab extends PluginSettingTab {
     const brand = hero.createDiv({ cls: 'github-vault-sync-brand' });
     const brandIcon = brand.createSpan({ cls: 'github-vault-sync-brand-icon' });
     setIcon(brandIcon, 'git-branch');
-    brand.createEl('h2', { text: 'GitHub Vault Sync' });
+    brand.createDiv({ cls: 'github-vault-sync-brand-title', text: 'GitHub Vault Sync',
+      attr: { role: 'heading', 'aria-level': '2' } });
     brand.createSpan({ cls: 'github-vault-sync-version', text: `v${this.plugin.manifest.version}` });
 
     const repoMeta = hero.createDiv({ cls: 'github-vault-sync-hero-repo' });
@@ -658,15 +662,56 @@ class GithubVaultSyncSettingTab extends PluginSettingTab {
     hero.createEl('small', { cls: 'github-vault-sync-hero-note',
       text: '先检查本机与仓库差异，再确认同步；不会绕过确认自动上传。' });
 
+    // These are in-page links, not tabs: every setting stays visible when navigating.
+    const sectionNav = containerEl.createEl('nav', {
+      cls: 'github-vault-sync-section-nav',
+      attr: { 'aria-label': '设置分区，点击后跳转；所有设置仍可向下滚动查看' }
+    });
+    const sections = [
+      ['sync', '笔记同步'], ['privacy', '隐私与恢复'],
+      ['account', '账户与仓库'], ['advanced', '高级设置']
+    ] as const;
+    const buttons = sections.map(([id, title], index) => {
+      const button = sectionNav.createEl('button', {
+        cls: 'github-vault-sync-section-link', text: title,
+        attr: { type: 'button', 'aria-controls': `gvs-settings-${id}` }
+      });
+      if (index === 0) button.setAttribute('aria-current', 'location');
+      button.addEventListener('click', () => {
+        sectionNav.querySelectorAll('button').forEach((other) => other.removeAttribute('aria-current'));
+        button.setAttribute('aria-current', 'location');
+        const section = containerEl.querySelector<HTMLElement>(`#gvs-settings-${id}`);
+        section?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+      });
+      return button;
+    });
+    // Keep aria-current in sync if the user scrolls instead of clicking a link.
     const content = containerEl.createDiv({ cls: 'github-vault-sync-settings-content' });
     this.renderSyncSection(content, statusBadge);
     this.renderPrivacySection(content);
     this.renderAccountSection(content);
     this.renderAdvancedSection(content);
+    const observer = new IntersectionObserver((entries) => {
+      const visible = entries.filter((entry) => entry.isIntersecting).sort((a, b) =>
+        a.boundingClientRect.top - b.boundingClientRect.top)[0];
+      if (!visible) return;
+      const index = sections.findIndex(([id]) => visible.target.id === `gvs-settings-${id}`);
+      if (index < 0) return;
+      buttons.forEach((button, position) => {
+        if (position === index) button.setAttribute('aria-current', 'location');
+        else button.removeAttribute('aria-current');
+      });
+    }, { root: null, rootMargin: '-15% 0px -65% 0px', threshold: 0 });
+    for (const [id] of sections) {
+      const section = content.querySelector<HTMLElement>(`#gvs-settings-${id}`);
+      if (section) observer.observe(section);
+    }
+    this.sectionObserver = observer;
   }
 
-  private card(container: HTMLElement, title: string, description?: string): HTMLElement {
+  private card(container: HTMLElement, title: string, description?: string, section?: string): HTMLElement {
     const card = container.createDiv({ cls: 'github-vault-sync-card' });
+    if (section) card.id = `gvs-settings-${section}`;
     const header = card.createDiv({ cls: 'github-vault-sync-card-header' });
     header.createEl('h3', { text: title });
     if (description) header.createEl('p', { text: description });
@@ -674,13 +719,7 @@ class GithubVaultSyncSettingTab extends PluginSettingTab {
   }
 
   private renderSyncSection(container: HTMLElement, statusBadge: HTMLElement): void {
-    const overview = this.card(container, '笔记同步', '先预览整个笔记库，再选择本机或仓库优先；确认前不会提交或上传。');
-    new Setting(overview)
-      .setName('同步前预览')
-      .setDesc('先检查 Markdown 笔记、笔记附件和 Obsidian 配置，再进入冲突选择。')
-      .addButton((button) => button.setButtonText('预览并同步').setCta()
-        .setDisabled(!this.plugin.settings.repo?.private || !this.plugin.settings.token)
-        .onClick(() => void this.plugin.syncNow()));
+    const overview = this.card(container, '同步概览', '先确认本机与仓库的变化，再预览整库并决定如何合并。', 'sync');
     const summary = overview.createDiv({ cls: 'github-vault-sync-summary' });
     renderSyncSummary(summary, this.plugin.engine.getSnapshot());
     this.unsubscribe = this.plugin.subscribeSnapshot((snapshot) => {
@@ -688,6 +727,12 @@ class GithubVaultSyncSettingTab extends PluginSettingTab {
       statusBadge.setText(healthLabel(snapshot.health));
       statusBadge.dataset.health = snapshot.health;
     });
+    new Setting(overview)
+      .setName('同步前预览')
+      .setDesc('先检查 Markdown 笔记、附件及 Obsidian 配置，再选择冲突优先方。')
+      .addButton((button) => button.setButtonText('预览并同步').setCta()
+        .setDisabled(!this.plugin.settings.repo?.private || !this.plugin.settings.token)
+        .onClick(() => void this.plugin.syncNow()));
     new Setting(overview)
       .setName('及时检查')
       .setDesc('本地变更后防抖检查，并每 5 分钟检查远端；只提醒，不自动上传。')
@@ -710,9 +755,9 @@ class GithubVaultSyncSettingTab extends PluginSettingTab {
   }
 
   private renderPrivacySection(container: HTMLElement): void {
-    const privacy = this.card(container, '隐私与恢复', this.plugin.settings.encryptedSyncEnabled
+    const privacy = this.card(container, '配置加密与恢复', this.plugin.settings.encryptedSyncEnabled
       ? '插件私有配置已使用客户端加密镜像；恢复密钥只保存在本机。'
-      : '可将插件 data.json 和配置例外加密为密文包，不以明文提交。');
+      : '可将插件 data.json 和配置例外加密为密文包，不以明文提交。', 'privacy');
     new Setting(privacy)
       .setName('恢复密钥')
       .setDesc('明确点击后显示完整密钥并支持复制；关闭窗口后隐藏。')
@@ -745,7 +790,7 @@ class GithubVaultSyncSettingTab extends PluginSettingTab {
   }
 
   private renderAccountSection(container: HTMLElement): void {
-    const account = this.card(container, '账户与仓库', 'GitHub 登录只用于访问你控制的私有笔记仓库；公开插件仓库不是笔记仓库。');
+    const account = this.card(container, '连接 GitHub', '登录凭据只用于访问你控制的私有笔记仓库；公开插件仓库不是笔记仓库。', 'account');
     new Setting(account)
       .setName('GitHub 登录')
       .setDesc(this.plugin.settings.token ? `已连接（${this.plugin.settings.authType ?? 'PAT'}）` : '未连接')
@@ -770,7 +815,7 @@ class GithubVaultSyncSettingTab extends PluginSettingTab {
   }
 
   private renderAdvancedSection(container: HTMLElement): void {
-    const scope = this.card(container, '同步范围', '控制是否包含 Obsidian 配置、检查延迟和本地扫描范围。');
+    const scope = this.card(container, '同步范围', '控制是否包含 Obsidian 配置、检查延迟和本地扫描范围。', 'advanced');
     new Setting(scope)
       .setName('同步 .obsidian 设置')
       .setDesc('插件代码和主题可同步；data.json 明文始终排除，私有配置只通过密文镜像同步。')
@@ -833,6 +878,8 @@ class GithubVaultSyncSettingTab extends PluginSettingTab {
   hide(): void {
     this.unsubscribe?.();
     this.unsubscribe = undefined;
+    this.sectionObserver?.disconnect();
+    this.sectionObserver = undefined;
     super.hide();
   }
 }
