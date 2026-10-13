@@ -16,6 +16,7 @@ import { GithubClient } from './github';
 import { SyncEngine } from './sync-engine';
 import { CurrentNotePlan, embeddedAttachmentPaths } from './current-note';
 import { isMarkdownNote } from './sync-preview';
+import { nextSettingsTab, SETTINGS_TABS, SettingsSection, showSettingsTab } from './settings-tabs';
 import {
   ConflictChoice,
   DEFAULT_EXCLUDE_PATTERNS,
@@ -185,7 +186,8 @@ export default class GithubVaultSyncPlugin extends Plugin {
     this.addCommand({ id: 'open-sync-log', name: '查看同步日志', callback: () => this.openLogs() });
     this.addCommand({ id: 'disconnect-repository', name: '断开仓库与清除凭据', callback: () => void this.disconnect() });
 
-    this.addRibbonIcon('git-branch', 'GitHub Vault Sync', () => this.openSyncCenter());
+    this.addRibbonIcon('git-branch', 'GitHub Vault Sync', () => this.openSyncCenter())
+      .addClass('github-vault-sync-ribbon');
     this.registerEvent(this.app.vault.on('modify', (file) => this.scheduleAutoSync(file.path)));
     this.registerEvent(this.app.vault.on('create', (file) => this.scheduleAutoSync(file.path)));
     this.registerEvent(this.app.vault.on('delete', (file) => this.scheduleAutoSync(file.path)));
@@ -623,7 +625,7 @@ export default class GithubVaultSyncPlugin extends Plugin {
 
 class GithubVaultSyncSettingTab extends PluginSettingTab {
   private unsubscribe?: () => void;
-  private sectionObserver?: IntersectionObserver;
+  private activeSection: SettingsSection = 'sync';
 
   constructor(app: App, private readonly plugin: GithubVaultSyncPlugin) {
     super(app, plugin);
@@ -633,8 +635,6 @@ class GithubVaultSyncSettingTab extends PluginSettingTab {
     const { containerEl } = this;
     this.unsubscribe?.();
     this.unsubscribe = undefined;
-    this.sectionObserver?.disconnect();
-    this.sectionObserver = undefined;
     containerEl.empty();
     containerEl.addClass('github-vault-sync-settings-page');
 
@@ -662,51 +662,43 @@ class GithubVaultSyncSettingTab extends PluginSettingTab {
     hero.createEl('small', { cls: 'github-vault-sync-hero-note',
       text: '先检查本机与仓库差异，再确认同步；不会绕过确认自动上传。' });
 
-    // These are in-page links, not tabs: every setting stays visible when navigating.
-    const sectionNav = containerEl.createEl('nav', {
-      cls: 'github-vault-sync-section-nav',
-      attr: { 'aria-label': '设置分区，点击后跳转；所有设置仍可向下滚动查看' }
-    });
-    const sections = [
-      ['sync', '笔记同步'], ['privacy', '隐私与恢复'],
-      ['account', '账户与仓库'], ['advanced', '高级设置']
-    ] as const;
-    const buttons = sections.map(([id, title], index) => {
-      const button = sectionNav.createEl('button', {
-        cls: 'github-vault-sync-section-link', text: title,
-        attr: { type: 'button', 'aria-controls': `gvs-settings-${id}` }
-      });
-      if (index === 0) button.setAttribute('aria-current', 'location');
-      button.addEventListener('click', () => {
-        sectionNav.querySelectorAll('button').forEach((other) => other.removeAttribute('aria-current'));
-        button.setAttribute('aria-current', 'location');
-        const section = containerEl.querySelector<HTMLElement>(`#gvs-settings-${id}`);
-        section?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+    // Pre-mount each panel so keyboard navigation is instant and switching
+    // does not recreate live inputs or lose the selected settings section.
+    const tablist = containerEl.createEl('nav', { cls: 'github-vault-sync-section-nav',
+      attr: { role: 'tablist', 'aria-orientation': 'horizontal', 'aria-label': 'GitHub Vault Sync 设置页面' } });
+    const content = containerEl.createDiv({ cls: 'github-vault-sync-settings-content' });
+    const panels = SETTINGS_TABS.map(({ id }) => content.createDiv({
+      cls: 'github-vault-sync-tab-panel',
+      attr: { id: `gvs-panel-${id}`, role: 'tabpanel', 'aria-labelledby': `gvs-tab-${id}` }
+    }));
+    const tabs = SETTINGS_TABS.map(({ id, label }, index) => {
+      const button = tablist.createEl('button', { cls: 'github-vault-sync-section-link', text: label,
+        attr: { id: `gvs-tab-${id}`, type: 'button', role: 'tab', 'aria-controls': `gvs-panel-${id}` } });
+      button.addEventListener('click', () => select(index));
+      button.addEventListener('keydown', (event) => {
+        const next = nextSettingsTab(event.key, index, SETTINGS_TABS.length);
+        if (next === null) return;
+        event.preventDefault();
+        select(next);
+        tabs[next].focus();
       });
       return button;
     });
-    // Keep aria-current in sync if the user scrolls instead of clicking a link.
-    const content = containerEl.createDiv({ cls: 'github-vault-sync-settings-content' });
-    this.renderSyncSection(content, statusBadge);
-    this.renderPrivacySection(content);
-    this.renderAccountSection(content);
-    this.renderAdvancedSection(content);
-    const observer = new IntersectionObserver((entries) => {
-      const visible = entries.filter((entry) => entry.isIntersecting).sort((a, b) =>
-        a.boundingClientRect.top - b.boundingClientRect.top)[0];
-      if (!visible) return;
-      const index = sections.findIndex(([id]) => visible.target.id === `gvs-settings-${id}`);
-      if (index < 0) return;
-      buttons.forEach((button, position) => {
-        if (position === index) button.setAttribute('aria-current', 'location');
-        else button.removeAttribute('aria-current');
-      });
-    }, { root: null, rootMargin: '-15% 0px -65% 0px', threshold: 0 });
-    for (const [id] of sections) {
-      const section = content.querySelector<HTMLElement>(`#gvs-settings-${id}`);
-      if (section) observer.observe(section);
-    }
-    this.sectionObserver = observer;
+    const select = (index: number): void => {
+      this.activeSection = SETTINGS_TABS[index].id;
+      showSettingsTab(tabs, panels, index);
+      // The settings host can retain a previous panel's scroll position.
+      // A new page should always begin at its heading.
+      const scroller = containerEl.closest<HTMLElement>('.vertical-tab-content');
+      scroller?.scrollTo({ top: 0, behavior: 'auto' });
+    };
+
+    this.renderSyncSection(panels[0], statusBadge);
+    this.renderPrivacySection(panels[1]);
+    this.renderAccountSection(panels[2]);
+    this.renderAdvancedSection(panels[3]);
+    const initial = SETTINGS_TABS.findIndex(({ id }) => id === this.activeSection);
+    showSettingsTab(tabs, panels, initial < 0 ? 0 : initial);
   }
 
   private card(container: HTMLElement, title: string, description?: string, section?: string): HTMLElement {
@@ -881,8 +873,6 @@ class GithubVaultSyncSettingTab extends PluginSettingTab {
   hide(): void {
     this.unsubscribe?.();
     this.unsubscribe = undefined;
-    this.sectionObserver?.disconnect();
-    this.sectionObserver = undefined;
     super.hide();
   }
 }
@@ -893,7 +883,15 @@ interface AuthAction {
   token?: string;
 }
 
-class AuthModal extends Modal {
+/** Scope common button, focus and reduced-motion polish to our own dialogs. */
+class GithubVaultSyncModal extends Modal {
+  constructor(app: App) {
+    super(app);
+    this.modalEl.addClass('github-vault-sync-modal');
+  }
+}
+
+class AuthModal extends GithubVaultSyncModal {
   private clientId = '';
   private pat = '';
 
@@ -920,7 +918,7 @@ class AuthModal extends Modal {
   }
 }
 
-class DeviceCodeModal extends Modal {
+class DeviceCodeModal extends GithubVaultSyncModal {
   private statusEl!: HTMLElement;
 
   constructor(app: App, private readonly userCode: string, private readonly verificationUri: string, private readonly completeUri?: string) {
@@ -945,7 +943,7 @@ class DeviceCodeModal extends Modal {
   }
 }
 
-class RepositoryModal extends Modal {
+class RepositoryModal extends GithubVaultSyncModal {
   private owner: string;
   private name: string;
 
@@ -967,7 +965,7 @@ class RepositoryModal extends Modal {
   onClose(): void { this.contentEl.empty(); }
 }
 
-class InitialBindingModal extends Modal {
+class InitialBindingModal extends GithubVaultSyncModal {
   private submitting = false;
 
   constructor(app: App, private readonly binding: RepoBinding,
@@ -1043,7 +1041,7 @@ class InitialBindingModal extends Modal {
   onClose(): void { this.contentEl.empty(); }
 }
 
-class CurrentNoteModal extends Modal {
+class CurrentNoteModal extends GithubVaultSyncModal {
   private submitting = false;
 
   constructor(app: App, private readonly plan: CurrentNotePlan,
@@ -1090,7 +1088,7 @@ class CurrentNoteModal extends Modal {
   onClose(): void { this.contentEl.empty(); }
 }
 
-class SyncPreviewModal extends Modal {
+class SyncPreviewModal extends GithubVaultSyncModal {
   private selected: SyncPriority | null = null;
   private configApproved = false;
   private submitting = false;
@@ -1198,7 +1196,7 @@ class SyncPreviewModal extends Modal {
   onClose(): void { this.contentEl.empty(); }
 }
 
-class NoteComparisonModal extends Modal {
+class NoteComparisonModal extends GithubVaultSyncModal {
   constructor(app: App, private readonly filePath: string, private readonly local: string,
     private readonly remote: string, private readonly remoteCommit: string,
     private readonly localModified: string, private readonly remoteModified: string) { super(app); }
@@ -1225,7 +1223,7 @@ class NoteComparisonModal extends Modal {
   onClose(): void { this.contentEl.empty(); }
 }
 
-class SyncCenterModal extends Modal {
+class SyncCenterModal extends GithubVaultSyncModal {
   private unsubscribe?: () => void;
   private summaryEl?: HTMLElement;
   private statusEl?: HTMLElement;
@@ -1267,7 +1265,7 @@ class SyncCenterModal extends Modal {
   onClose(): void { this.unsubscribe?.(); this.contentEl.empty(); }
 }
 
-class ConflictModal extends Modal {
+class ConflictModal extends GithubVaultSyncModal {
   private choices: Record<string, ConflictChoice> = {};
   private submitting = false;
 
@@ -1318,7 +1316,7 @@ class ConflictModal extends Modal {
   onClose(): void { this.contentEl.empty(); }
 }
 
-class RecoveryKeyModal extends Modal {
+class RecoveryKeyModal extends GithubVaultSyncModal {
   constructor(app: App, private recoveryKey: string, private readonly recoveryFile: string) { super(app); }
 
   onOpen(): void {
@@ -1356,7 +1354,7 @@ class RecoveryKeyModal extends Modal {
   }
 }
 
-class DependencyModal extends Modal {
+class DependencyModal extends GithubVaultSyncModal {
   constructor(app: App, private readonly status: { git: { available: boolean; version: string; executable: string; error?: string }; gitLfs: { available: boolean; version: string; initialized: boolean; error?: string } }) { super(app); }
 
   onOpen(): void {
@@ -1372,7 +1370,7 @@ class DependencyModal extends Modal {
   onClose(): void { this.contentEl.empty(); }
 }
 
-class TextModal extends Modal {
+class TextModal extends GithubVaultSyncModal {
   constructor(app: App, private readonly title: string, private readonly value: string) { super(app); }
   onOpen(): void {
     this.contentEl.empty();
@@ -1383,7 +1381,7 @@ class TextModal extends Modal {
   onClose(): void { this.contentEl.empty(); }
 }
 
-class ConfirmModal extends Modal {
+class ConfirmModal extends GithubVaultSyncModal {
   private submitting = false;
 
   constructor(app: App, private readonly title: string, private readonly description: string, private readonly onConfirm: () => Promise<void>) { super(app); }
