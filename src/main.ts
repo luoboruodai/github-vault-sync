@@ -641,12 +641,22 @@ class GithubVaultSyncSettingTab extends PluginSettingTab {
     setIcon(brandIcon, 'git-branch');
     brand.createEl('h2', { text: 'GitHub Vault Sync' });
     brand.createSpan({ cls: 'github-vault-sync-version', text: `v${this.plugin.manifest.version}` });
-    const statusBadge = brand.createSpan({ cls: 'github-vault-sync-health', text: healthLabel(this.plugin.engine.getSnapshot().health) });
+
+    const repoMeta = hero.createDiv({ cls: 'github-vault-sync-hero-repo' });
+    repoMeta.createSpan({ cls: 'github-vault-sync-hero-repo-label', text: '当前仓库' });
+    const repoIdentity = repoMeta.createSpan({ cls: 'github-vault-sync-hero-repo-identity' });
+    if (this.plugin.settings.repo) {
+      repoIdentity.setText(`${this.plugin.settings.repo.owner}/${this.plugin.settings.repo.name}`);
+      repoMeta.createSpan({ cls: 'github-vault-sync-hero-repo-branch', text: this.plugin.settings.branch });
+      repoMeta.createSpan({ cls: 'github-vault-sync-hero-repo-privacy',
+        text: this.plugin.settings.repo.private ? '私有' : '公开' });
+    } else {
+      repoIdentity.setText('尚未连接同步仓库');
+    }
+    const statusBadge = repoMeta.createSpan({ cls: 'github-vault-sync-health', text: healthLabel(this.plugin.engine.getSnapshot().health) });
     statusBadge.dataset.health = this.plugin.engine.getSnapshot().health;
-    hero.createEl('p', { text: this.plugin.settings.repo
-      ? `${this.plugin.settings.repo.owner}/${this.plugin.settings.repo.name} · ${this.plugin.settings.branch} · ${this.plugin.settings.repo.private ? '私有仓库' : '仓库'}`
-      : '尚未连接同步仓库' });
-    hero.createEl('small', { text: '先检查本机与仓库差异，再确认同步；不会绕过确认自动上传。' });
+    hero.createEl('small', { cls: 'github-vault-sync-hero-note',
+      text: '先检查本机与仓库差异，再确认同步；不会绕过确认自动上传。' });
 
     const content = containerEl.createDiv({ cls: 'github-vault-sync-settings-content' });
     this.renderSyncSection(content, statusBadge);

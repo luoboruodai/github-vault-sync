@@ -943,3 +943,152 @@
 .github-vault-sync-settings-content > .github-vault-sync-card {
   width: 100%;
 }
+
+/* Latest UI review: separate brand, repository context and section hierarchy. */
+.github-vault-sync-hero {
+  padding: 18px 20px 16px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--background-primary) 96%, var(--interactive-accent) 4%);
+  box-shadow: none;
+}
+.github-vault-sync-brand {
+  align-items: baseline;
+  gap: 6px;
+}
+.github-vault-sync-brand-icon {
+  width: 24px;
+  height: 24px;
+  color: var(--interactive-accent);
+  align-self: center;
+}
+.github-vault-sync-brand-icon svg { width: 21px; height: 21px; }
+.github-vault-sync-brand h2 {
+  color: var(--text-normal);
+  font-size: 1.42rem !important;
+  font-weight: 600 !important;
+  letter-spacing: -.01em;
+}
+.github-vault-sync-version {
+  margin-left: 2px;
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+  font-weight: 400;
+}
+.github-vault-sync-brand .github-vault-sync-health { display: none; }
+.github-vault-sync-hero-repo {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  min-width: 0;
+  margin-top: 13px;
+  padding: 9px 11px;
+  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 86%, transparent);
+  border-radius: 10px;
+  background: var(--background-primary);
+}
+.github-vault-sync-hero-repo-label {
+  color: var(--text-muted);
+  font-size: var(--font-smallest);
+  letter-spacing: .02em;
+}
+.github-vault-sync-hero-repo-identity {
+  min-width: 0;
+  max-width: 100%;
+  color: var(--text-normal);
+  font-size: var(--font-ui-small);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.github-vault-sync-hero-repo-branch,
+.github-vault-sync-hero-repo-privacy {
+  padding: 2px 7px;
+  border-radius: 999px;
+  color: var(--text-muted);
+  background: var(--background-secondary);
+  font-size: var(--font-smallest);
+}
+.github-vault-sync-hero-repo .github-vault-sync-health {
+  margin-left: auto;
+  min-height: 24px;
+  padding: 0 8px;
+  font-size: var(--font-smallest);
+}
+.github-vault-sync-hero-note {
+  display: block;
+  margin-top: 10px !important;
+  color: var(--text-muted) !important;
+  font-size: var(--font-ui-small) !important;
+  font-weight: 400 !important;
+  line-height: 1.45;
+}
+
+/* No full-width rule under navigation if a future section adds tabs. */
+.github-vault-sync-tabs {
+  border-bottom: 0 !important;
+  padding: 0 !important;
+}
+.github-vault-sync-tab,
+.github-vault-sync-tab.is-active {
+  border-bottom: 0 !important;
+  box-shadow: none !important;
+}
+.github-vault-sync-tab.is-active {
+  background: color-mix(in srgb, var(--interactive-accent) 10%, var(--background-primary));
+}
+
+.github-vault-sync-card {
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--background-primary) 96%, var(--background-secondary));
+}
+.github-vault-sync-card-header {
+  padding: 16px 20px 12px;
+  background: transparent;
+}
+.github-vault-sync-card-header h3 {
+  color: var(--text-normal);
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+.github-vault-sync-card-header p {
+  max-width: 72ch;
+  margin-top: 5px;
+  color: var(--text-muted);
+  font-size: .86rem;
+  line-height: 1.45;
+}
+.github-vault-sync-card > .setting-item {
+  margin: 0 16px 8px;
+  padding: 13px 14px;
+  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 76%, transparent);
+  border-radius: 12px;
+  background: var(--background-primary);
+}
+.github-vault-sync-card > .setting-item:first-of-type { margin-top: 0; }
+.github-vault-sync-card > .setting-item:last-child { margin-bottom: 16px; }
+.github-vault-sync-card > .setting-item .setting-item-name {
+  color: var(--text-normal);
+  font-size: .93rem;
+  font-weight: 500;
+  line-height: 1.35;
+}
+.github-vault-sync-card > .setting-item .setting-item-description {
+  margin-top: 4px;
+  color: var(--text-muted);
+  font-size: .82rem;
+  line-height: 1.45;
+}
+.github-vault-sync-card > .setting-item .setting-item-info {
+  padding-inline-end: 16px;
+}
+.github-vault-sync-card .github-vault-sync-summary {
+  margin: 12px 16px 16px !important;
+}
+.github-vault-sync-card .github-vault-sync-summary + .setting-item {
+  margin-top: 0;
+}
+@media (max-width: 700px) {
+  .github-vault-sync-hero-repo .github-vault-sync-health { margin-left: 0; }
+  .github-vault-sync-card > .setting-item { margin-inline: 12px; }
+}
