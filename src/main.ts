@@ -253,7 +253,11 @@ export default class GithubVaultSyncPlugin extends Plugin {
 
   async saveSensitiveSettings(): Promise<void> {
     await this.saveData(this.settings);
-    await fs.chmod(path.join(this.vaultPath, '.obsidian', 'plugins', 'github-vault-sync', 'data.json'), 0o600);
+    // POSIX modes do not provide equivalent Windows access control; on Windows
+    // the Vault's ACL must be managed by its owner.
+    if (process.platform !== 'win32') {
+      await fs.chmod(path.join(this.vaultPath, '.obsidian', 'plugins', 'github-vault-sync', 'data.json'), 0o600);
+    }
   }
 
   private async startupCheck(): Promise<void> {

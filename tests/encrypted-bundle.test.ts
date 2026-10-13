@@ -92,7 +92,7 @@ describe('client-side encrypted plugin backup', () => {
     const config = settings(generateRecoveryKey());
     const file = await writeRecoveryKeyFile(config, path.join(vault, 'recovery'));
     expect((await fs.readFile(file, 'utf8')).trim()).toBe(config.encryptionKey);
-    expect((await fs.stat(file)).mode & 0o777).toBe(0o600);
+    if (process.platform !== 'win32') expect((await fs.stat(file)).mode & 0o777).toBe(0o600);
     expect(await writeRecoveryKeyFile(config, path.join(vault, 'recovery'))).toBe(file);
   });
 });

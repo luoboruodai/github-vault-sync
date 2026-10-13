@@ -3,6 +3,8 @@ node_modules/
 /main.js
 *.js.map
 coverage/
+__pycache__/
+*.pyc
 .vitest/
 dist/
 

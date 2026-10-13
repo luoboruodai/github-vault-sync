@@ -1,10 +1,10 @@
 import { createCipheriv, createDecipheriv, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { promises as fs } from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { gunzipSync, gzipSync } from 'node:zlib';
 import { GithubVaultSyncSettings } from './types';
 import { ensureDirectory, isSafeRelativePath, normalizeRelPath } from './utils';
+import { backupDataDirectory } from './platform-paths';
 
 export const ENCRYPTED_BUNDLE = '.github-vault-sync-encrypted/vault.gvs';
 const MAGIC = 'GVS-AES-256-GCM-v1';
@@ -159,9 +159,9 @@ function decryptPayload(envelope: Envelope, recoveryKey: string): Payload {
 export async function writeRecoveryKeyFile(settings: GithubVaultSyncSettings, recoveryDirectory?: string): Promise<string> {
   if (!settings.repo) throw new Error('Bind a repository before exporting a recovery key');
   const key = validateRecoveryKey(settings.encryptionKey);
-  const root = recoveryDirectory ?? path.join(os.homedir(), 'Library', 'Application Support', 'github-vault-sync-backups', 'recovery-keys');
+  const root = recoveryDirectory ?? path.join(backupDataDirectory(), 'recovery-keys');
   await ensureDirectory(root);
-  await fs.chmod(root, 0o700);
+  if (process.platform !== 'win32') await fs.chmod(root, 0o700);
   const owner = settings.repo.owner.replace(/[^A-Za-z0-9._-]/g, '-');
   const name = settings.repo.name.replace(/[^A-Za-z0-9._-]/g, '-');
   const destination = path.join(root, `${owner}-${name}.key`);
@@ -172,7 +172,7 @@ export async function writeRecoveryKeyFile(settings: GithubVaultSyncSettings, re
       throw new Error('A different recovery key already exists; refusing to overwrite it');
     }
   }
-  await fs.chmod(destination, 0o600);
+  if (process.platform !== 'win32') await fs.chmod(destination, 0o600);
   return destination;
 }
 
@@ -263,9 +263,9 @@ export async function restoreEncryptedBundle(vaultPath: string, settings: Github
     safe.push({ path: entry.path, data, mode: entry.mode & 0o777 });
   }
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const backup = path.join(backupRoot ?? path.join(os.homedir(), 'Library', 'Application Support', 'github-vault-sync-backups', 'restores'), stamp);
+  const backup = path.join(backupRoot ?? path.join(backupDataDirectory(), 'restores'), stamp);
   await ensureDirectory(backup);
-  await fs.chmod(backup, 0o700);
+  if (process.platform !== 'win32') await fs.chmod(backup, 0o700);
   for (const entry of safe) {
     const target = path.join(vaultPath, entry.path);
     const destination = path.join(backup, entry.path);
