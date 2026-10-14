@@ -2,7 +2,7 @@
 
 [English](README.md)
 
-**v0.1.3 开发预览：**正在本地验证第二设备初始化、旧版策略迁移、加密恢复顺序、Git LFS 文件落地、仓库级代理诊断及跨 Electron CSS 回退。正式公开安装版本仍为 v0.1.2，待最终确认后再发布。
+**v0.1.3 源码预览（2026-10-14）：**源码已进入 `main`，已完成 macOS／Windows CI 和 macOS Obsidian 1.14.4 宿主基础检查；Windows 原生第二设备验收仍待完成。**公开安装版本仍为 v0.1.2，本次不是 v0.1.3 Release。**详见[验证记录与剩余检查](docs/VALIDATION_v0.1.3.md)。
 
  · [开发过程与交接记录](docs/PROJECT_HISTORY.md)
 
@@ -82,7 +82,7 @@ v0.1.2 保留 v0.1.1 的当前笔记同步与冲突预览，将设置分为「�
 
 ## 跨平台验证
 
-macOS／Windows CI 会运行 TypeScript 检查、临时本地 Git/Git LFS 集成测试、生产构建，并逐文件核对 ZIP 与构建产物。CI **不是 Windows 的 Obsidian 图形界面实机测试**，也无法保证适配所有第三方主题或 Git 安装方式；遇到平台问题请提供系统、Obsidian 版本及不含密钥的诊断信息。CI 不接触真实笔记库或 GitHub Token。
+macOS／Windows CI 会运行 TypeScript 检查、临时本地 Git/Git LFS 集成测试和生产构建。**Release 标签 CI 还会核对 ZIP 与构建产物；`main`／PR 开发构建不要求提供未发布版本的 ZIP。**CI 不是 Windows 的 Obsidian 图形界面实机测试，也无法保证适配所有第三方主题或 Git 安装方式。本轮另在 macOS 宿主验证了 v0.1.3 运行版本、四页设置和配置安全迁移，未执行真实同步或恢复。详见[验证范围](docs/VALIDATION_v0.1.3.md)；遇到平台问题请提供系统、Obsidian 版本及不含密钥的诊断信息。CI 不接触真实笔记库或 GitHub Token。
 
 ## 从源码构建
 

@@ -2,7 +2,7 @@
 
 [简体中文](README.zh-CN.md)
 
-**v0.1.3 development preview:** second-device bootstrap, legacy policy migration, encrypted restore ordering, Git LFS hydration, per-repository proxy diagnostics, and cross-Electron CSS fallbacks are being validated locally. The public install release remains v0.1.2 until final acceptance.
+**v0.1.3 source preview (2026-10-14):** the source is available on `main`, with macOS/Windows CI and a macOS Obsidian 1.14.4 host smoke check completed. Native Windows second-device acceptance is still pending. **The public install release remains v0.1.2; this is not a v0.1.3 Release.** See the [validation record and remaining checks](docs/VALIDATION_v0.1.3.md).
 
  · [Developer history](docs/PROJECT_HISTORY.md)
 
@@ -82,7 +82,7 @@ On another desktop device, install this plugin, bind the same private repository
 
 ## Cross-platform verification
 
-The macOS/Windows CI runs TypeScript checks, temporary local Git/Git LFS integration tests, a production build, and checks the ZIP against the built files. This is **not** a Windows Obsidian GUI session or a guarantee for every third-party theme or Git installation; report host-specific issues with the Obsidian version, OS, and non-secret diagnostic details. No real vault or GitHub token is used in CI.
+The macOS/Windows CI runs TypeScript checks, temporary local Git/Git LFS integration tests, and a production build. **Release-tag CI also checks that the ZIP matches the built files; `main`/PR development builds do not require an unreleased ZIP.** This is not a Windows Obsidian GUI session or a guarantee for every third-party theme or Git installation. The separate macOS host smoke check covered the running v0.1.3 version, four settings pages, and safe settings migration, not a live sync or restore. See the [validation scope](docs/VALIDATION_v0.1.3.md); report host-specific issues with the Obsidian version, OS, and non-secret diagnostic details. No real vault or GitHub token is used in CI.
 
 ## Build from source
 

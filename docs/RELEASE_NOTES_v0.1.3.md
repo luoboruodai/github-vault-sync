@@ -1,6 +1,6 @@
 # GitHub Vault Sync v0.1.3 — Second-device bootstrap and network resilience (unreleased)
 
-> This is a local development version. The public v0.1.2 Release and tag remain unchanged until v0.1.3 is explicitly accepted and published.
+> This is an unreleased source preview available on `main`. The public v0.1.2 Release and tag remain unchanged. See the [validation record](VALIDATION_v0.1.3.md) for completed checks and outstanding acceptance; source publication is not a v0.1.3 binary release.
 
 ## 中文
 
@@ -19,12 +19,17 @@
 ### 安全边界
 
 - 不会将公开插件仓库改成笔记仓库；PAT、恢复密钥和 Vault 内容不进入公开源码或发行包。
-- v0.1.2 公开 Release 不被覆盖或移动。本版本在用户确认前只做本地开发、测试和隔离预览，不自动创建 Release。
+- v0.1.2 公开 Release 不被覆盖或移动。本版本已推送源码并在 macOS 本机验证；源码推送和本机安装不等于发布 v0.1.3 Release。
 - Windows CI/本地 Git 测试不等于 Windows Obsidian 图形界面实机验收；代理和 LFS 仍依赖用户本机环境。
+
+### 验证状态（2026-10-14）
+
+- 对源码提交 `bbbd5e2`，本机 TypeScript、20 个测试文件／72 项测试及构建通过，macOS／Windows CI 通过；macOS Obsidian 1.14.4 的正常重启、运行版本、四页切换及 schema 1 → 2 配置迁移已做基础验收。
+- Windows 原生第二设备、企业代理及完整多设备同步仍有未验证范围；没有用真实 Vault 执行上传或恢复回归。详细证据范围与发布前检查见[验收记录](VALIDATION_v0.1.3.md)。
 
 ## English
 
-This is an unreleased local development version focused on second-device Windows bootstrap from an empty Vault.
+This is an unreleased source preview focused on second-device Windows bootstrap from an empty Vault.
 
 ### Fixes and improvements
 
@@ -36,4 +41,8 @@ This is an unreleased local development version focused on second-device Windows
 - Error feedback includes a timestamp and clears after a successful check; plaintext remote plugin `data.json` files produce a specific safety-policy error.
 - Adds theme-token fallbacks for older Electron shells without `color-mix()`, reducing baseline/hover differences across Obsidian installations.
 
-The public v0.1.2 Release remains immutable. No v0.1.3 Release is created until the user confirms the fixes and final cross-platform verification.
+### Validation status (2026-10-14)
+
+Source commit `bbbd5e2` passed local TypeScript checks, 20 test files / 72 tests, the production build, and macOS/Windows CI. A separate macOS Obsidian 1.14.4 smoke check verified normal restart, the running plugin version, four settings pages, and schema 1 → 2 migration. These checks do not establish native Windows second-device, corporate-proxy, or full multi-device-sync acceptance; no real-vault upload or restore regression was performed. See the [validation record](VALIDATION_v0.1.3.md).
+
+The public v0.1.2 Release remains immutable. Creating a v0.1.3 Release still requires explicit authorization and resolution of the remaining acceptance checks.

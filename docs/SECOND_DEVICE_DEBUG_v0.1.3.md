@@ -25,3 +25,5 @@ This is a sanitized public engineering summary derived from a private second-dev
 ## Verification boundaries
 
 The source tests can exercise temporary Git repositories, encryption, policy migration, proxy argument construction, and stale-preview guards. CI can verify Node/Git/LFS behavior on Windows and macOS. Neither replaces a native Obsidian GUI session on every platform, a real corporate proxy, or a full multi-device LFS visual review.
+
+For the checks actually completed on 2026-10-14, including macOS host validation and the still-pending native Windows second-device work, see the [v0.1.3 validation record](VALIDATION_v0.1.3.md). Do not treat a successful CI job or a macOS host check as Windows GUI acceptance.
