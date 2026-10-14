@@ -8,6 +8,37 @@
 
 **GitHub Vault Sync** is an Obsidian desktop plugin for synchronizing a vault with a **separate private GitHub repository**. This public repository contains only the plugin's source code and distributable releases. **Do not use this public repository for your notes or credentials.**
 
+## UI motion tour (v0.1.3 development preview)
+
+These short **illustrative UI-motion demos** use the plugin stylesheet and representative settings/preview markup with sample data. They show state changes, preview-first conflict review, and encrypted-settings boundaries; they are not recordings of a live Obsidian session and do not perform a sync. The approved videos are H.264 MP4 files at 1280×720 and 30 fps. On GitHub, use the direct MP4 links; Markdown viewers that allow HTML video may also show the inline player.
+
+### Status flow: local changes → remote check → preview → complete
+
+[Watch the status-flow MP4](docs/media/overview-b-status-flow.mp4) · 4.8s
+
+<video controls preload="metadata" width="720" style="max-width:100%;height:auto">
+  <source src="docs/media/overview-b-status-flow.mp4" type="video/mp4">
+  Video playback is not supported in this viewer; use the link above.
+</video>
+
+### Preview → choose → confirm
+
+[Watch the preview-flow MP4](docs/media/safe-sync-a-preview.mp4) · 7.2s
+
+<video controls preload="metadata" width="720" style="max-width:100%;height:auto">
+  <source src="docs/media/safe-sync-a-preview.mp4" type="video/mp4">
+  Video playback is not supported in this viewer; use the link above.
+</video>
+
+### Encrypted-settings boundary
+
+[Watch the encrypted-boundary MP4](docs/media/recovery-c-encrypted-boundary.mp4) · 4.8s
+
+<video controls preload="metadata" width="720" style="max-width:100%;height:auto">
+  <source src="docs/media/recovery-c-encrypted-boundary.mp4" type="video/mp4">
+  Video playback is not supported in this viewer; use the link above.
+</video>
+
 ## Install the v0.1.2 release
 
 v0.1.2 keeps the note-first sync and safe conflict review from v0.1.1, and makes the settings a four-page interface (Notes, Privacy & Recovery, Account & Repository, Advanced). Clicking a tab switches pages instead of scrolling. Keyboard tab navigation, theme-aware button hierarchy, responsive layout, and reduced-motion support have been refined.

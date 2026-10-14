@@ -4,3 +4,4 @@
 *.json text eol=lf
 *.css text eol=lf
 *.zip binary
+*.mp4 binary

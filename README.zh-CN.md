@@ -8,6 +8,37 @@
 
 **GitHub Vault Sync** 是 Obsidian 桌面端插件，可将笔记库同步到**另外一个由你控制的私有 GitHub 仓库**。本项目公开仓库只发布插件源码与安装包，**不要把笔记或凭据上传到本公开仓库**。
 
+## UI Motion 界面动效导览（v0.1.3 开发预览）
+
+以下是使用插件样式和代表性设置／预览结构、以示例数据制作的**界面动效演示**。它们展示状态变化、先预览再处理冲突，以及加密配置的边界；不是 Obsidian 实际运行录屏，也不会执行同步。已确认的视频均为 1280×720、30fps 的 H.264 MP4。在 GitHub 页面请使用下方 MP4 链接；允许 HTML 视频的 Markdown 阅读器还可显示内嵌播放器。
+
+### 状态流转：本地变化 → 读取远端 → 预览 → 完成
+
+[观看状态流转 MP4](docs/media/overview-b-status-flow.mp4) · 4.8 秒
+
+<video controls preload="metadata" width="720" style="max-width:100%;height:auto">
+  <source src="docs/media/overview-b-status-flow.mp4" type="video/mp4">
+  此阅读器不支持视频播放，请使用上方链接。
+</video>
+
+### 预览 → 选择 → 确认
+
+[观看预览流程 MP4](docs/media/safe-sync-a-preview.mp4) · 7.2 秒
+
+<video controls preload="metadata" width="720" style="max-width:100%;height:auto">
+  <source src="docs/media/safe-sync-a-preview.mp4" type="video/mp4">
+  此阅读器不支持视频播放，请使用上方链接。
+</video>
+
+### 加密配置边界
+
+[观看加密边界 MP4](docs/media/recovery-c-encrypted-boundary.mp4) · 4.8 秒
+
+<video controls preload="metadata" width="720" style="max-width:100%;height:auto">
+  <source src="docs/media/recovery-c-encrypted-boundary.mp4" type="video/mp4">
+  此阅读器不支持视频播放，请使用上方链接。
+</video>
+
 ## 安装 v0.1.2
 
 v0.1.2 保留 v0.1.1 的当前笔记同步与冲突预览，将设置分为「笔记同步／隐私与恢复／账户与仓库／高级设置」四个独立页面。点击页签直接切页，不再滚动定位；同时调整了键盘导航、主题配色、按钮主次、窄窗布局与减少动态效果。

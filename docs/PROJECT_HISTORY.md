@@ -176,3 +176,10 @@ pnpm build
 - **Git/LFS 与网络**：远程优先克隆先关闭 LFS smudge，再本地初始化 LFS 并显式 pull 对象；无 LFS 但远端含指针时明确阻止。Git 支持仓库级 HTTP/HTTPS/SOCKS 代理，不污染远端 URL；网络错误区分代理/连接问题和 GitHub 认证问题。大附件只在有 Git LFS 规则和对象配额时继续。
 - **错误与宿主**：错误记录时间并在成功检查后清除，方便区分旧错误与当前状态。Obsidian/Electron 壳版本可能影响 `color-mix()` 和 `prefers-reduced-motion`，设置页增加局部 CSS 回退；不把主题一致等同于 Electron 壳一致。
 - **验证结论**：已新增设置迁移、代理参数、加密摘要、第二设备空密文包门禁等测试；v0.1.3 仍是本地开发预览，公开 v0.1.2 tag/Release 不移动。Windows CI 仍不等同于 Windows Obsidian GUI 实机验收。
+
+### UI Motion 文档动效（2026-10-14；v0.1.3 开发预览，未发布）
+
+- 用户通过两阶段本机预览确认了三个方向及最终 MP4：状态流转、预览→选择→确认、加密配置边界。公开目录仅包含 `docs/media/overview-b-status-flow.mp4`、`docs/media/safe-sync-a-preview.mp4`、`docs/media/recovery-c-encrypted-boundary.mp4`；不加入候选 GIF/WebM、原始截图或任何真实 Vault 内容。
+- 动效使用插件 CSS 与代表性的设置页／预览结构生成，演示中的计数、仓库名和状态是示例，不是 Obsidian 宿主的现场录屏，也不触发 Git 同步。它们说明交互意图，不替代真实宿主、Windows 或第二设备的验收。
+- 中英 README 同时提供可直接打开的 MP4 链接与可选 HTML 播放器。对 GitHub Markdown 渲染接口的本地检查发现 `<video>` 会被移除，因此可见的直链放在原生 HTML 标签之外，不把 GitHub README 的内嵌播放当作已实现。测试对三份媒体的批准 SHA-256 与两份 README 的链接进行回归检查。
+- 此次只更新开发预览文档和测试：公开安装版本仍是 v0.1.2，不改变同步逻辑、不制作新安装 ZIP，也不修改私有 Vault。
