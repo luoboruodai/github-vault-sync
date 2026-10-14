@@ -7,12 +7,22 @@ settings, vault data, private test evidence and development dependencies.
 import argparse
 import json
 import os
+import re
+from urllib.parse import urlsplit
 from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 
 ROOT = Path(__file__).resolve().parent.parent
 PREFIX = 'github-vault-sync/'
-MEMBERS = ('manifest.json', 'main.js', 'styles.css', 'README.md', 'README.zh-CN.md')
+# Explicit source -> install mapping: repository READMEs contain links to files
+# deliberately absent from the ZIP. Ship independent, offline-usable guides.
+MEMBERS = {
+    'manifest.json': 'manifest.json',
+    'main.js': 'main.js',
+    'styles.css': 'styles.css',
+    'README.md': 'docs/install/README.md',
+    'README.zh-CN.md': 'docs/install/README.zh-CN.md',
+}
 
 
 def release_path() -> Path:
@@ -41,8 +51,10 @@ def build(archive: Path) -> None:
     try:
         with ZipFile(temp, 'w', compression=ZIP_DEFLATED, compresslevel=9) as z:
             z.writestr(entry(PREFIX, 0o40755), b'')
-            for name in MEMBERS:
-                z.writestr(entry(PREFIX + name, 0o100644), (ROOT / name).read_bytes(), compress_type=ZIP_DEFLATED, compresslevel=9)
+            for name, source in MEMBERS.items():
+                z.writestr(entry(PREFIX + name, 0o100644), (ROOT / source).read_bytes(), compress_type=ZIP_DEFLATED, compresslevel=9)
+        # Never replace an existing archive with a candidate that cannot verify.
+        verify(temp)
         os.replace(temp, archive)
     finally:
         temp.unlink(missing_ok=True)
@@ -53,10 +65,25 @@ def verify(archive: Path) -> None:
     with ZipFile(archive) as z:
         if z.namelist() != expected or z.testzip() is not None:
             raise ValueError('Unexpected release ZIP members or CRC failure')
-        for name in MEMBERS:
-            if z.read(PREFIX + name) != (ROOT / name).read_bytes():
+        for name, source in MEMBERS.items():
+            if z.read(PREFIX + name) != (ROOT / source).read_bytes():
                 raise ValueError(f'Release ZIP member differs from reviewed source: {name}')
-    print(f'Verified {archive.name}: {len(expected)} allowed members, source bytes match')
+        version = json.loads(z.read(PREFIX + 'manifest.json'))['version']
+        for name in ('README.md', 'README.zh-CN.md'):
+            guide = z.read(PREFIX + name).decode('utf-8')
+            if f'v{version}' not in guide.splitlines()[0]:
+                raise ValueError(f'Installation guide version mismatch: {name}')
+            if re.search(r'<(?:video|source|img)\b|!\[', guide, re.IGNORECASE):
+                raise ValueError(f'Installation guide embeds unpackaged media: {name}')
+            for link in re.findall(r'\]\(([^)]+)\)', guide):
+                parsed = urlsplit(link)
+                if parsed.scheme == 'https' and parsed.netloc:
+                    continue  # Explicit online-only references, not bundled assets.
+                if parsed.scheme or parsed.netloc or parsed.query:
+                    raise ValueError(f'Unsupported installation guide link: {name}')
+                if parsed.path and parsed.path not in MEMBERS:
+                    raise ValueError(f'Installation guide link is not packaged: {name}')
+    print(f'Verified {archive.name}: {len(expected)} allowed members, source bytes and standalone guides match')
 
 
 if __name__ == '__main__':

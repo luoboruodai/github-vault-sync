@@ -1,6 +1,6 @@
-# GitHub Vault Sync v0.1.3 — Second-device bootstrap and network resilience (unreleased)
+# GitHub Vault Sync v0.1.3 — Second-device bootstrap and network resilience
 
-> This is an unreleased source preview available on `main`. The public v0.1.2 Release and tag remain unchanged. See the [validation record](VALIDATION_v0.1.3.md) for completed checks and outstanding acceptance; source publication is not a v0.1.3 binary release.
+> **2026-10-14 · v0.1.3 release.** One installable ZIP for desktop Obsidian; preserve local settings when upgrading. The v0.1.2 tag and assets are unchanged. Native Windows second-device acceptance, corporate proxies and full multi-device scenarios remain explicitly unverified; see the [validation record](VALIDATION_v0.1.3.md).
 
 ## 中文
 
@@ -19,7 +19,7 @@
 ### 安全边界
 
 - 不会将公开插件仓库改成笔记仓库；PAT、恢复密钥和 Vault 内容不进入公开源码或发行包。
-- v0.1.2 公开 Release 不被覆盖或移动。本版本已推送源码并在 macOS 本机验证；源码推送和本机安装不等于发布 v0.1.3 Release。
+- v0.1.2 公开 Release 和标签不被覆盖或移动。v0.1.3 安装包由本次发布提交构建；仍需先预览、再确认真实 Vault 同步。
 - Windows CI/本地 Git 测试不等于 Windows Obsidian 图形界面实机验收；代理和 LFS 仍依赖用户本机环境。
 
 ### 验证状态（2026-10-14）
@@ -27,9 +27,17 @@
 - 对源码提交 `bbbd5e2`，本机 TypeScript、20 个测试文件／72 项测试及构建通过，macOS／Windows CI 通过；macOS Obsidian 1.14.4 的正常重启、运行版本、四页切换及 schema 1 → 2 配置迁移已做基础验收。
 - Windows 原生第二设备、企业代理及完整多设备同步仍有未验证范围；没有用真实 Vault 执行上传或恢复回归。详细证据范围与发布前检查见[验收记录](VALIDATION_v0.1.3.md)。
 
+### 安装／升级
+
+下载本次 Release 唯一的手动附件 `github-vault-sync-0.1.3.zip`，不要使用自动生成的 Source code ZIP。保存笔记、备份 Vault 后正常退出 Obsidian；将三安装文件放到 `.obsidian/plugins/github-vault-sync/`，**保留现有本机 `data.json`**。重开后确认插件设置显示 v0.1.3。详细步骤见[独立中文指南](install/README.zh-CN.md)，ZIP 也附有同一份中英说明。
+
+首次启动会迁移旧配置并可能更新本地密文包。升级差异仍需预览；当密文包两端都变更时，不要自动选择一端覆盖。恢复密钥与备份留在 Vault 之外；发布源码或安装插件不授权同步私人笔记。
+
+安装包只收录三运行文件及双语指南，动效／工程文档是固定到版本标签的在线链接。新增七项打包测试覆盖白名单、版本一致性、字节一致性、可重复构建、缺失链接和失败时保留旧包；本次发布准备的全量本机验证为 **21 个测试文件／79 项测试**，类型检查和生产构建通过。
+
 ## English
 
-This is an unreleased source preview focused on second-device Windows bootstrap from an empty Vault.
+This release hardens second-device bootstrap from an empty Vault while preserving preview-first synchronization. Native Windows GUI acceptance is still pending; the release does not claim that every target environment has been tested.
 
 ### Fixes and improvements
 
@@ -45,4 +53,12 @@ This is an unreleased source preview focused on second-device Windows bootstrap 
 
 Source commit `bbbd5e2` passed local TypeScript checks, 20 test files / 72 tests, the production build, and macOS/Windows CI. A separate macOS Obsidian 1.14.4 smoke check verified normal restart, the running plugin version, four settings pages, and schema 1 → 2 migration. These checks do not establish native Windows second-device, corporate-proxy, or full multi-device-sync acceptance; no real-vault upload or restore regression was performed. See the [validation record](VALIDATION_v0.1.3.md).
 
-The public v0.1.2 Release remains immutable. Creating a v0.1.3 Release still requires explicit authorization and resolution of the remaining acceptance checks.
+The existing v0.1.2 tag and assets are not modified. v0.1.3 is distributed with the remaining native Windows and environment-specific verification limits disclosed, not counted as passed.
+
+### Installation / upgrade
+
+Download the single manual asset `github-vault-sync-0.1.3.zip`, not GitHub's automatic Source code archive. Save notes, back up the vault, and exit Obsidian normally. Replace only the three runtime files in `.obsidian/plugins/github-vault-sync/` and **keep your existing local `data.json`**. Reopen Obsidian and confirm v0.1.3 in plugin settings. The ZIP includes the same [standalone English guide](install/README.md) and its Chinese counterpart.
+
+The first load migrates legacy settings and can update the local encrypted bundle. Review the resulting differences; do not silently overwrite an encrypted bundle changed on both devices. Keep recovery keys and backups outside the vault. Publishing or installing the plugin does not authorize syncing private notes.
+
+The fixed package allowlist contains three runtime files and two independent guides. Videos and engineering records are online-only links pinned to the version tag. Seven new packaging tests cover member/version/byte consistency, repeatability, missing guide links, and preserving an existing valid archive when a new candidate fails validation. Release preparation passed **21 test files / 79 tests**, type checking and the production build.

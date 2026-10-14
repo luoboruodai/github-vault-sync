@@ -1,10 +1,10 @@
 # v0.1.3 validation and source closeout / 验证与源码收尾
 
-**2026-10-14 · Unreleased source preview / 未发布的源码预览**
+**2026-10-14 · v0.1.3 release validation scope / 发布验证范围**
 
-This record distinguishes source/build checks, native-host checks, and publication. The implementation and approved media were tested at source commit `bbbd5e2228e3c8ec8245f13be34450d5791a64a3`. The subsequent documentation closeout does not change the installed JavaScript, stylesheet, manifest, or approved video bytes. The public install Release remains v0.1.2; no v0.1.3 binary Release is implied.
+This record distinguishes source/build checks, native-host checks, and publication. The implementation and approved media were tested at source commit `bbbd5e2228e3c8ec8245f13be34450d5791a64a3`. The release preparation changes documentation, archive tooling and packaging tests, not the host-verified JavaScript, stylesheet, manifest or approved video bytes. v0.1.3 is released with the native Windows/environment-specific limits below disclosed, not counted as passed. The existing v0.1.2 tag and assets remain unchanged.
 
-本记录区分源码／构建、原生宿主验证和正式发布。实现与已批准媒体的测试基线为上述提交；其后的文档收尾不改变安装文件或视频字节。**源码进入 `main`、本机安装通过，不等于已发布 v0.1.3 安装包。**
+本记录区分源码／构建、原生宿主验证和正式发布。实现与已批准媒体的测试基线为上述提交；发布准备只调整文档、打包工具与回归测试，不改变已验收插件运行文件。**本次按明确授权发布 v0.1.3，并披露尚未完成的 Windows 原生／环境专项验收，不把它们算作通过。**
 
 ## Completed checks / 已完成检查
 
@@ -27,10 +27,22 @@ The CI workflow attached to each later commit remains the authority for that com
 - Native Windows Obsidian second-device setup, recovery ordering and attachment use in the user's target environment. **Windows CI is not Windows GUI acceptance.** 原生 Windows 第二设备验收仍待完成。
 - Actual corporate/authenticated proxy policies, host-specific Git/LFS behavior and full multi-device attachment review. Earlier isolated/local checks do not establish these environments. 实际企业代理和完整多设备附件检查不能由本机模拟代替。
 - A real-vault upload, encrypted conflict choice or restore is outside this smoke check; each requires its own preview, backup and explicit authorization. No upload was performed just to clear pending differences. 不为清空待同步状态自动选择密文版本。
-- Before any v0.1.3 distribution, review the final archive's standalone instructions and links. The current archive allowlist does not include `docs/` or media, so repository-relative documentation/video links must be adapted or clearly identified as online-only. Verify the final archive, release-tag CI and downloaded bytes after any separately authorized release. **Do not relabel or move v0.1.2.** 正式发布前还需检查最终包、离线说明、标签 CI 与附件回读。
+
+## Distribution checks / 正式分发检查
+
+The repository README is no longer copied into the ZIP. The fixed source-to-archive mapping installs the two guides under `docs/install/` as `README.md` / `README.zh-CN.md`; cross-language links work inside the extracted package, while videos and engineering records use explicit online links pinned to v0.1.3. The package verifier checks all six members (one directory plus five files), CRC, source-byte equality, guide versions and packaged relative-link targets. A failed candidate is rejected before replacing an existing valid ZIP.
+
+安装包现采用独立双语说明，避免解压后指向不存在的仓库目录。新增七项打包回归测试（纳入 `pnpm test`）检查包成员、版本、字节、可重复构建、包外链接、陈旧指南及失败回退；不把“成功压缩”误作可安装验证。 本次发布准备的本机类型检查、**21 个测试文件／79 项测试**和生产构建均通过；七项新增测试不改变此前的插件宿主验收构建。
+
+The release preparation passed local type checking, **21 test files / 79 tests**, and the production build. The seven additional archive tests do not change the host-verified plugin runtime.
+
+Publication gates for the exact release commit: local tests and production build; macOS/Windows branch CI; a new v0.1.3 tag without moving older tags; macOS/Windows **tag CI including archive verification**; and SHA-256 readback of the uploaded Release asset. The Release description records the final run identities and archive checksum after these checks. Old source-only CI above is historical evidence and is not substituted for the release-tag checks.
+
+最终 Release 说明记录本次发布提交对应的 CI 与 ZIP 校验值。主分支跳过 ZIP 检查不算发行包通过，必须另外核实本版标签 CI 和附件下载字节。v0.1.2 标签、历史 Release 和附件保持原样。
+
 
 ## Handoff and privacy / 交接与隐私
 
-Public handoff: [development history](PROJECT_HISTORY.md), [draft release notes](RELEASE_NOTES_v0.1.3.md), and [second-device engineering notes](SECOND_DEVICE_DEBUG_v0.1.3.md). Private host screenshots, user notes, configuration, keys, backups and detailed local handoff records are intentionally excluded from Git. A local package upgrade does not authorize syncing the user's private vault.
+Public handoff: [development history](PROJECT_HISTORY.md), [release notes](RELEASE_NOTES_v0.1.3.md), and [second-device engineering notes](SECOND_DEVICE_DEBUG_v0.1.3.md). Private host screenshots, user notes, configuration, keys, backups and detailed local handoff records are intentionally excluded from Git. A local package upgrade does not authorize syncing the user's private vault.
 
 公开记录仅保留脱敏结论和可公开的提交／CI 身份。真实 Vault、原始对话截图、配置、密钥、备份与本地交接记录留在本机私有区；它们不会因为项目收尾而进入公开仓库。

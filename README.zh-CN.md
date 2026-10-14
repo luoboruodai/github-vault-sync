@@ -2,13 +2,13 @@
 
 [English](README.md)
 
-**v0.1.3 源码预览（2026-10-14）：**源码已进入 `main`，已完成 macOS／Windows CI 和 macOS Obsidian 1.14.4 宿主基础检查；Windows 原生第二设备验收仍待完成。**公开安装版本仍为 v0.1.2，本次不是 v0.1.3 Release。**详见[验证记录与剩余检查](docs/VALIDATION_v0.1.3.md)。
+**v0.1.3（2026-10-14）：**改进第二设备初始化、旧配置安全规则迁移、加密恢复顺序、Git LFS 文件落地、仓库级代理诊断及旧 Electron 样式回退。下载单一 [v0.1.3 安装 ZIP](releases/github-vault-sync-0.1.3.zip)。Windows 原生第二设备验收仍待完成，详见[验证范围与已知限制](docs/VALIDATION_v0.1.3.md)。
 
  · [开发过程与交接记录](docs/PROJECT_HISTORY.md)
 
 **GitHub Vault Sync** 是 Obsidian 桌面端插件，可将笔记库同步到**另外一个由你控制的私有 GitHub 仓库**。本项目公开仓库只发布插件源码与安装包，**不要把笔记或凭据上传到本公开仓库**。
 
-## UI Motion 界面动效导览（v0.1.3 开发预览）
+## UI Motion 界面动效导览（v0.1.3）
 
 以下是使用插件样式和代表性设置／预览结构、以示例数据制作的**界面动效演示**。它们展示状态变化、先预览再处理冲突，以及加密配置的边界；不是 Obsidian 实际运行录屏，也不会执行同步。已确认的视频均为 1280×720、30fps 的 H.264 MP4。在 GitHub 页面请使用下方 MP4 链接；允许 HTML 视频的 Markdown 阅读器还可显示内嵌播放器。
 
@@ -39,13 +39,13 @@
   此阅读器不支持视频播放，请使用上方链接。
 </video>
 
-## 安装 v0.1.2
+## 安装 v0.1.3
 
-v0.1.2 保留 v0.1.1 的当前笔记同步与冲突预览，将设置分为「笔记同步／隐私与恢复／账户与仓库／高级设置」四个独立页面。点击页签直接切页，不再滚动定位；同时调整了键盘导航、主题配色、按钮主次、窄窗布局与减少动态效果。
+v0.1.3 保留当前笔记同步、上传前预览和四个独立设置页，重点加固第二设备加密配置及 Git/LFS 初始化，补齐旧版安全排除规则并加入仓库级代理诊断。详见[更新说明](docs/RELEASE_NOTES_v0.1.3.md)与[独立安装／升级指南](docs/install/README.zh-CN.md)。
 
 1. 先备份 Obsidian Vault。安装 Git；如需同步图片、PDF 等符合附件规则的文件，另需安装 Git LFS。
-2. 打开本项目 GitHub 的 **Releases**，下载 `github-vault-sync-0.1.2.zip`。**唯一手动上传的 Release 资产**就是此 ZIP；仓库也保留同一份 [`releases/github-vault-sync-0.1.2.zip`](releases/github-vault-sync-0.1.2.zip)。GitHub 自动生成的“Source code (zip/tar.gz)”**不是可安装插件包**，因为项目根目录不收录构建后的 `main.js`。
-3. 将 ZIP 解压到 `<Vault>/.obsidian/plugins/`，确认结果为：
+2. 打开本项目 GitHub 的 **Releases**，下载 `github-vault-sync-0.1.3.zip`。**唯一手动上传的 Release 资产**就是此 ZIP；仓库也保留同一份 [`releases/github-vault-sync-0.1.3.zip`](releases/github-vault-sync-0.1.3.zip)。GitHub 自动生成的“Source code (zip/tar.gz)”**不是可安装插件包**，因为项目根目录不收录构建后的 `main.js`。
+3. 保存笔记并正常退出 Obsidian，然后将 ZIP 解压到 `<Vault>/.obsidian/plugins/`，确认结果为：
 
    ```text
    <Vault>/.obsidian/plugins/github-vault-sync/manifest.json
@@ -56,9 +56,9 @@ v0.1.2 保留 v0.1.1 的当前笔记同步与冲突预览，将设置分为「�
    Windows 典型路径为 `C:\Users\<用户名>\Documents\笔记库\.obsidian\plugins\github-vault-sync\`；macOS 使用 `<Vault>/.obsidian/plugins/github-vault-sync/`。**升级时保留原有本机 `data.json`，不要删除后重建整个插件目录。**
 
    不要多套一层 `github-vault-sync/`。ZIP 已含全部插件文件和双语安装说明；手动安装不用再单独下载 Release 资产，也无需 Node.js、pnpm。Git 及按附件规则需要的 Git LFS 仍是**系统层依赖**。安装包不含 Token、恢复密钥或个人笔记。
-4. 重启 Obsidian，在「设置 → 第三方插件」启用 **GitHub Vault Sync**。适用于 **Windows 和 macOS 的 Obsidian 桌面版 1.13.0+**（也支持 Linux 桌面版）；不支持移动端。Windows、macOS 使用同一个 ZIP。
+4. 重新打开 Obsidian，在「设置 → 第三方插件」启用 **GitHub Vault Sync**。适用于 **Windows 和 macOS 的 Obsidian 桌面版 1.13.0+**（也支持 Linux 桌面版）；不支持移动端。Windows、macOS 使用同一个 ZIP。
 
-如果你当前已经安装标为 `0.4.0` 的本地原型，公开 `0.1.0` 才是**首次公开发行**；`0.1.2` 延续这一公开版本系列，不等同于内部 `0.4.0` 的版本降级或升级。无需仅为了下载公开包就替换正常运行的安装；手动替换前请备份 Vault，并保留本地的 `data.json`。
+如果你当前已经安装标为 `0.4.0` 的本地原型，公开 `0.1.0` 才是**首次公开发行**；`0.1.3` 延续这一公开版本系列，不等同于内部 `0.4.0` 的版本降级或升级。无需仅为了下载公开包就替换正常运行的安装；手动替换前请备份 Vault，并保留本地的 `data.json`。
 
 ## 连接自己的私有笔记仓库
 
@@ -93,7 +93,7 @@ pnpm test
 pnpm build
 ```
 
-构建产物为项目根目录的 `main.js`；发布者可运行 `python scripts/release_archive.py build` 生成并校验白名单 ZIP。安装到 Vault 的只需 `manifest.json`、`main.js`、`styles.css`。现成安装包请使用唯一的 [Release ZIP](releases/github-vault-sync-0.1.2.zip)。架构、设计决策、测试和已脱敏的开发对话时间线见 [项目交接文档](docs/PROJECT_HISTORY.md)。
+构建产物为项目根目录的 `main.js`；发布者可运行 `python scripts/release_archive.py build` 生成并校验白名单 ZIP。包内采用 `docs/install/` 下的独立中英说明，不直接复制仓库 README；在线动效与文档链接固定到本版标签。安装到 Vault 的只需 `manifest.json`、`main.js`、`styles.css`。现成安装包请使用唯一的 [Release ZIP](releases/github-vault-sync-0.1.3.zip)。架构、设计决策、测试和已脱敏的开发对话时间线见 [项目交接文档](docs/PROJECT_HISTORY.md)。
 
 ## 安全提示
 
