@@ -29,7 +29,7 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build
-      - run: choco install -y git-lfs ghostscript ffmpeg
+      - run: choco install -y git-lfs ghostscript ffmpeg-full
       - name: Locate Ghostscript and check required tools and encoders
         shell: bash
         run: |
@@ -43,7 +43,7 @@ jobs:
           ffmpeg -hide_banner -h encoder=libsvtav1
           python --version
           node --version
-      - run: python -m pip install --upgrade pip && python -m pip install pillow-avif-plugin pypdf
+      - run: python -m pip install --upgrade pip && python -m pip install pillow pillow-avif-plugin pypdf
       - name: Execute generated media commands on Windows
         shell: bash
         run: node_modules/.bin/esbuild scripts/windows-media-validation.mjs --bundle --platform=node --format=esm --outfile=/tmp/windows-media-validation.mjs && node /tmp/windows-media-validation.mjs

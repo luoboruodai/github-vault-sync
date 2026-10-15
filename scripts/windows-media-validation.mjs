@@ -24,7 +24,7 @@ const expect = (condition, message) => {
   if (!condition) throw new Error(message);
 };
 
-// Deterministic generated samples only; no Vault or user content is read.
+// Synthetic generated samples only; no Vault or user content is read.
 const sampleScript = `import os
 from PIL import Image
 from pathlib import Path
