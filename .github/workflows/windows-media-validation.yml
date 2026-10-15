@@ -37,6 +37,7 @@ jobs:
           test -n "$GS_BIN"
           "$GS_BIN" --version
           echo "GSWIN64C=$GS_BIN" >> "$GITHUB_ENV"
+          dirname "$GS_BIN" >> "$GITHUB_PATH"
           git lfs version
           ffmpeg -hide_banner -h encoder=libwebp
           ffmpeg -hide_banner -h encoder=libsvtav1

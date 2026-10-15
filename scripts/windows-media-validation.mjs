@@ -25,7 +25,7 @@ const expect = (condition, message) => {
 };
 
 // Deterministic generated samples only; no Vault or user content is read.
-const noise = (size) => `import os
+const sampleScript = `import os
 from PIL import Image
 from pathlib import Path
 root = Path(os.environ.get('GVS_MEDIA_DIR'))
@@ -41,7 +41,7 @@ for _ in range(3):
     pages.append(image)
 pages[0].save(root / 'book.pdf', 'PDF', resolution=150.0, save_all=True, append_images=pages[1:])
 `;
-python(`import os\nos.environ['GVS_MEDIA_DIR'] = r'${media.replace(/\\/g, '/')}'\n${noise}`);
+python(`import os\nos.environ['GVS_MEDIA_DIR'] = r'${media.replace(/\\/g, '/')}'\n${sampleScript}`);
 run('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-f', 'lavfi', '-i', 'testsrc2=size=640x360:rate=30:duration=2', '-c:v', 'libx264', '-crf', '18', '-pix_fmt', 'yuv420p', '-y', 'demo.mp4']);
 run('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-f', 'lavfi', '-i', 'testsrc2=size=320x240:rate=15:duration=2', '-c:v', 'gif', '-y', 'animation.gif']);
 
@@ -63,36 +63,44 @@ const settings = {
   mediaQualityFloorPsnr: 35,
   mediaShowSavings: true
 };
+const thresholdBytes = Math.round(settings.mediaSizeThresholdMB * 1024 * 1024);
+expect(files.length === 6, `expected 6 generated samples, got ${files.length}`);
+for (const file of files) {
+  expect(file.size > thresholdBytes, `sample is below the scan threshold: ${file.path} (${file.size} bytes)`);
+}
 const report = scanMediaForOptimization(files, settings, 'win32');
-expect(report.findings.length === 5, `expected 5 media findings, got ${report.findings.length}`);
+expect(report.findings.length === files.length, `expected ${files.length} media findings, got ${report.findings.length}`);
 
-const sourceHashes = new Map(files.map((file) => [file.path, hash(file.path)]));
+const sourceHashes = new Map(files.map((file) => [file.path, hash(file.absolutePath)]));
 const targetHashes = new Map();
 for (const [index, finding] of report.findings.entries()) {
   const commandFile = path.join(root, `command-${index + 1}.sh`);
+  const commandName = path.basename(commandFile);
   fs.writeFileSync(commandFile, finding.command);
-  execFileSync('bash', ['-n', commandFile], { stdio: 'inherit' });
-  execFileSync('bash', [commandFile], { cwd: root, stdio: 'inherit' });
+  execFileSync('bash', ['-n', commandName], { cwd: root, stdio: 'inherit' });
+  execFileSync('bash', [commandName], { cwd: root, stdio: 'inherit' });
   const target = path.join(root, finding.targetPath);
   expect(fs.existsSync(target), `missing output ${finding.targetPath}`);
   targetHashes.set(finding.targetPath, hash(target));
-  const second = spawnSync('bash', [commandFile], { cwd: root, encoding: 'utf8' });
+  const second = spawnSync('bash', [commandName], { cwd: root, encoding: 'utf8' });
   expect(second.status === 1, `second run should refuse to overwrite ${finding.targetPath}`);
   expect(second.stderr.includes('目标已存在，未覆盖'), `missing overwrite refusal for ${finding.targetPath}`);
   expect(hash(target) === targetHashes.get(finding.targetPath), `target changed after refusal: ${finding.targetPath}`);
 }
 for (const file of files) {
-  expect(hash(file.path) === sourceHashes.get(file.path), `source changed: ${file.path}`);
+  expect(hash(file.absolutePath) === sourceHashes.get(file.path), `source changed: ${file.path}`);
 }
 
 const photo = path.join(media, 'photo.avif');
 const photoInfo = python(`from PIL import Image
+import pillow_avif
 image = Image.open(r'${photo.replace(/\\/g, '/')}')
 print(image.format, image.size, image.mode)
 `, { stdio: 'pipe' });
 expect(photoInfo.includes('AVIF'), photoInfo);
 
 const psnrText = python(`from PIL import Image, ImageChops, ImageStat
+import pillow_avif
 import math
 source = Image.open(r'${path.join(media, 'photo.jpg').replace(/\\/g, '/')}')
 converted = Image.open(r'${photo.replace(/\\/g, '/')}')
@@ -101,14 +109,14 @@ converted.load()
 difference = ImageChops.difference(source, converted)
 rms = ImageStat.Stat(difference).rms
 mse = sum(value * value for value in rms) / len(rms)
-print('inf' if mse == 0 else 10 * math.log10(255 ** 2 / mse)
+print('inf' if mse == 0 else 10 * math.log10(255 ** 2 / mse))
 `, { stdio: 'pipe' });
 const psnr = Number.parseFloat(psnrText.trim());
 expect(psnr >= 35, `PSNR below 35 dB: ${psnr}`);
 
 const pdfInfo = python(`from pypdf import PdfReader
 reader = PdfReader(r'${path.join(media, 'book-ebook.pdf').replace(/\\/g, '/')}')
-print(len(reader.pages)
+print(len(reader.pages))
 `, { stdio: 'pipe' });
 expect(pdfInfo.trim() === '3', `PDF page count mismatch: ${pdfInfo}`);
 
