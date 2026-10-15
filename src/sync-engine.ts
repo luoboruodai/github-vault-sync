@@ -24,6 +24,7 @@ import { ENCRYPTED_BUNDLE, prepareEncryptedBundle, restoreEncryptedBundle } from
 import { changedPaths, summarizeDifference } from './difference';
 import { CurrentNotePlan, fingerprintNoteFiles, selectNoteAndAttachments } from './current-note';
 import { compareVaultPaths } from './migration';
+import { scanMediaForOptimization } from './media-scan';
 import { categorizeChanges, isMarkdownNote } from './sync-preview';
 import { ensureConflictDirectory, localExcludeEntries, readSyncPolicy, writeSyncPolicy } from './policy';
 import {
@@ -900,7 +901,9 @@ export class SyncEngine {
       remoteSha: this.settings.lastRemoteSha,
       localFingerprint: await this.localFingerprint(),
       createdAt: new Date().toISOString(), priority: null,
-      ...groups, difference: { ...this.snapshot.difference }, warnings: [...this.snapshot.warnings]
+      ...groups, difference: { ...this.snapshot.difference },
+      media: scanMediaForOptimization(this.scanResult?.included ?? [], this.settings),
+      warnings: [...this.snapshot.warnings]
     };
   }
 

@@ -2,6 +2,8 @@
 
 [简体中文](README.zh-CN.md)
 
+**v0.2.0 (under development; not yet released):** adds non-blocking media optimization advice to the full sync preview, a fifth settings page for media rules, guarded conversion commands, and AVIF Git LFS migration. The latest installable release remains v0.1.3.
+
 **v0.1.3 (2026-10-14):** safer second-device bootstrap, legacy settings migration, encrypted-restore ordering, Git LFS hydration, repository-scoped proxy diagnostics and older-Electron CSS fallbacks. Download the single [v0.1.3 installation ZIP](releases/github-vault-sync-0.1.3.zip). Native Windows second-device acceptance is still pending; see the [validation scope and known limits](docs/VALIDATION_v0.1.3.md).
 
  · [Developer history](docs/PROJECT_HISTORY.md)
@@ -73,6 +75,14 @@ Select **Preview and sync** in plugin settings or the Sync Center. Before any up
 **Choose one conflict policy for that run:** prefer this device, prefer the repository, or review each note. The priority applies **only when the same Markdown path changed on both sides**. Independent changes are merged; plugin configurations, encrypted archives, and binary attachments require file-level review. The losing Markdown version is saved locally under `.github-vault-sync-conflicts/`, which is not uploaded. File times can help review, but clock times do not prove which text is newest. If local content or the remote commit changes after preview, the plugin rejects the stale approval and asks you to preview again. No force push is performed.
 
 Progress shows verified staging file counts and Git/LFS object progress where Git reports it; otherwise the transfer indicator remains indeterminate rather than inventing a percentage. **Timely checking** notices local changes after a configurable delay (default 90 seconds) and checks GitHub every five minutes. It **never uploads without your explicit preview and confirmation**.
+
+## Media optimization before upload (v0.2.0 development)
+
+During a full sync preview, the development build lists included PNG/JPG/JPEG, PDF, MP4, and GIF files larger than the configurable threshold. These suggestions **never block synchronization**, and the plugin does not execute the conversions. The **Media optimization** settings page controls the threshold (default 2 MB), media-only glob exclusions, the image PSNR floor (default 35 dB), and whether estimated savings are shown.
+
+Each finding has a **Copy conversion command** action. Run the copied command from the vault root in a terminal; on Windows use Git Bash. Images require Pillow and `pillow-avif-plugin`, PDFs require Ghostscript, MP4 commands require FFmpeg with `libsvtav1`, and GIF commands require FFmpeg with `libwebp`. PNG starts at AVIF q70 and JPG at q60; the command then tries higher quality steps through q100 until the configured PSNR floor is met. If the floor still cannot be met, it leaves no converted file. Existing destinations are not overwritten, and colliding output names receive a short hash.
+
+PDF commands use Ghostscript `/ebook`, MP4 commands use AV1, and GIF commands produce animated WebP. Estimated savings are projections from the measured vault samples, not guarantees for a particular file. Lossy replacement is irreversible: keep a cold backup, inspect the generated files, update note links yourself, and open a fresh sync preview afterward. AVIF is included in the default Git LFS rules and is added once when migrating pre-0.2.0 settings.
 
 ## Encrypted plugin settings and recovery key
 

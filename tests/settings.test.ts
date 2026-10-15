@@ -26,4 +26,41 @@ describe('settings migration and network options', () => {
     expect(() => normalizeHttpProxy('http://user:pass@127.0.0.1:7897')).toThrow(/不要包含/);
     expect(() => normalizeHttpProxy('ftp://127.0.0.1:21')).toThrow(/只支持/);
   });
+
+  it('migrates media settings and adds AVIF to legacy LFS rules only once', () => {
+    const migrated = normalizeSettings({
+      schemaVersion: 2,
+      lfsPatterns: ['*.png'],
+      mediaSizeThresholdMB: 4,
+      mediaExcludePatterns: [' 图片存储/** '],
+      mediaQualityFloorPsnr: 40,
+      mediaShowSavings: false
+    });
+    expect(migrated.changed).toBe(true);
+    expect(migrated.settings.lfsPatterns).toEqual(['*.png', '*.avif']);
+    expect(migrated.settings.mediaSizeThresholdMB).toBe(4);
+    expect(migrated.settings.mediaExcludePatterns).toEqual(['图片存储/**']);
+    expect(migrated.settings.mediaQualityFloorPsnr).toBe(40);
+    expect(migrated.settings.mediaShowSavings).toBe(false);
+    expect(normalizeSettings(migrated.settings).changed).toBe(false);
+
+    const currentWithoutAvif = { ...migrated.settings, lfsPatterns: ['*.png'] };
+    expect(normalizeSettings(currentWithoutAvif).settings.lfsPatterns).toEqual(['*.png']);
+    expect(normalizeSettings(currentWithoutAvif).changed).toBe(false);
+  });
+
+  it('normalizes invalid media values to safe defaults', () => {
+    const result = normalizeSettings({
+      schemaVersion: CURRENT_SETTINGS_SCHEMA,
+      mediaSizeThresholdMB: Number.NaN,
+      mediaQualityFloorPsnr: 99,
+      mediaExcludePatterns: '图片存储/**' as unknown as string[],
+      mediaShowSavings: undefined
+    });
+    expect(result.settings.mediaSizeThresholdMB).toBe(DEFAULT_SETTINGS.mediaSizeThresholdMB);
+    expect(result.settings.mediaQualityFloorPsnr).toBe(DEFAULT_SETTINGS.mediaQualityFloorPsnr);
+    expect(result.settings.mediaExcludePatterns).toEqual([]);
+    expect(result.settings.mediaShowSavings).toBe(DEFAULT_SETTINGS.mediaShowSavings);
+    expect(DEFAULT_SETTINGS.lfsPatterns).toContain('*.avif');
+  });
 });

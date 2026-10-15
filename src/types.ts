@@ -66,6 +66,10 @@ export interface GithubVaultSyncSettings {
   conflictFolder: string;
   gitUserName: string;
   gitUserEmail: string;
+  mediaSizeThresholdMB: number;
+  mediaExcludePatterns: string[];
+  mediaQualityFloorPsnr: number;
+  mediaShowSavings: boolean;
   lastRemoteSha: string;
   lastStatus: SyncHealth;
   lastError: string;
@@ -185,6 +189,25 @@ export interface SyncDifference {
   checkedAt: string;
 }
 
+export type MediaOptimizationKind = 'image' | 'pdf' | 'video' | 'animated-image';
+
+export interface MediaFinding {
+  path: string;
+  size: number;
+  kind: MediaOptimizationKind;
+  targetPath: string;
+  estimatedBytes: number;
+  command: string;
+}
+
+export interface MediaOptimizationReport {
+  findings: MediaFinding[];
+  totalBytes: number;
+  estimatedBytes: number;
+  thresholdBytes: number;
+  showSavings: boolean;
+}
+
 export interface SyncPreview {
   remoteSha: string;
   localFingerprint: string;
@@ -195,6 +218,7 @@ export interface SyncPreview {
   obsidianConfig: FileChange[];
   otherFiles: FileChange[];
   difference: SyncDifference;
+  media?: MediaOptimizationReport;
   warnings: string[];
 }
 
@@ -246,6 +270,7 @@ export const DEFAULT_EXCLUDE_PATTERNS = [
 
 export const DEFAULT_LFS_PATTERNS = [
   '*.png',
+  '*.avif',
   '*.jpg',
   '*.jpeg',
   '*.gif',
@@ -277,7 +302,7 @@ export const DEFAULT_LFS_PATTERNS = [
 ];
 
 export const DEFAULT_SETTINGS: GithubVaultSyncSettings = {
-  schemaVersion: 2,
+  schemaVersion: 3,
   oauthClientId: '',
   token: '',
   authType: null,
@@ -297,6 +322,10 @@ export const DEFAULT_SETTINGS: GithubVaultSyncSettings = {
   conflictFolder: '.github-vault-sync-conflicts',
   gitUserName: 'GitHub Vault Sync',
   gitUserEmail: 'github-vault-sync@users.noreply.github.com',
+  mediaSizeThresholdMB: 2,
+  mediaExcludePatterns: [],
+  mediaQualityFloorPsnr: 35,
+  mediaShowSavings: true,
   lastRemoteSha: '',
   lastStatus: 'unconfigured',
   lastError: '',

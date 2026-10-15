@@ -98,4 +98,21 @@ describe('review-before-upload', () => {
     const finished = await engine.resolvePending({ '.obsidian/app.json': 'remote', 'Notes/today.md': 'local' });
     expect(finished.ok, finished.message).toBe(true);
   });
+
+  it('attaches non-blocking media recommendations to the full sync preview', async () => {
+    const { vault, engine, settings } = await fixture();
+    settings.mediaQualityFloorPsnr = 41;
+    await fs.writeFile(path.join(vault, 'Notes', 'large.png'), Buffer.alloc(3 * 1024 * 1024, 7));
+    const preview = await engine.previewSync();
+    expect(preview.media?.findings).toHaveLength(1);
+    expect(preview.media?.findings[0]).toMatchObject({
+      path: 'Notes/large.png',
+      kind: 'image',
+      targetPath: 'Notes/large.avif'
+    });
+    expect(preview.media?.findings[0].command).toContain("'70' '41'");
+    expect(preview.media?.totalBytes).toBe(3 * 1024 * 1024);
+    expect(preview.notes).toEqual([]);
+    expect(preview.noteAttachments.map((item) => item.path)).toEqual(['Notes/large.png']);
+  });
 });

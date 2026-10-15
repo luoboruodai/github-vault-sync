@@ -2,6 +2,7 @@
  * text input or temporarily hides a saved setting from the plugin. */
 export const SETTINGS_TABS = [
   { id: 'sync', label: '笔记同步' },
+  { id: 'media', label: '媒体优化' },
   { id: 'privacy', label: '隐私与恢复' },
   { id: 'account', label: '账户与仓库' },
   { id: 'advanced', label: '高级设置' }

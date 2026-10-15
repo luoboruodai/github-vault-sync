@@ -1,0 +1,45 @@
+name: Windows media command validation
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - 'ci/windows-media-validation-*'
+
+permissions:
+  contents: read
+
+jobs:
+  media-commands:
+    name: Windows Git Bash media commands
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          version: 11.25.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
+          cache: pnpm
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+      - run: choco install -y git-lfs ghostscript ffmpeg
+      - name: Check required tools and encoders
+        shell: bash
+        run: |
+          git lfs version
+          gswin64c --version
+          ffmpeg -hide_banner -h encoder=libwebp
+          ffmpeg -hide_banner -h encoder=libsvtav1
+          python --version
+          node --version
+      - run: python -m pip install --upgrade pip && python -m pip install pillow-avif-plugin pypdf
+      - name: Execute generated media commands on Windows
+        shell: bash
+        run: node_modules/.bin/esbuild scripts/windows-media-validation.mjs --bundle --platform=node --format=esm --outfile=/tmp/windows-media-validation.mjs && node /tmp/windows-media-validation.mjs

@@ -15,6 +15,7 @@ import { ENCRYPTED_BUNDLE, generateRecoveryKey, inspectEncryptedBundle,
 import { GithubClient } from './github';
 import { SyncEngine } from './sync-engine';
 import { CurrentNotePlan, embeddedAttachmentPaths } from './current-note';
+import { mediaKindLabel } from './media-scan';
 import { isMarkdownNote } from './sync-preview';
 import { nextSettingsTab, SETTINGS_TABS, SettingsSection, showSettingsTab } from './settings-tabs';
 import { normalizeHttpProxy, normalizeSettings } from './settings';
@@ -711,9 +712,10 @@ class GithubVaultSyncSettingTab extends PluginSettingTab {
     };
 
     this.renderSyncSection(panels[0], statusBadge);
-    this.renderPrivacySection(panels[1]);
-    this.renderAccountSection(panels[2]);
-    this.renderAdvancedSection(panels[3]);
+    this.renderMediaSection(panels[1]);
+    this.renderPrivacySection(panels[2]);
+    this.renderAccountSection(panels[3]);
+    this.renderAdvancedSection(panels[4]);
     const initial = SETTINGS_TABS.findIndex(({ id }) => id === this.activeSection);
     showSettingsTab(tabs, panels, initial < 0 ? 0 : initial);
   }
@@ -764,6 +766,67 @@ class GithubVaultSyncSettingTab extends PluginSettingTab {
       .setName(note ? note.path : '尚未打开 Markdown 笔记')
       .setDesc(note ? '点击底部状态栏的“同步当前笔记”，不会提交其他笔记。' : '打开 Markdown 笔记后，底部状态栏按钮会自动启用。')
       .addButton((button) => button.setButtonText('打开同步中心').onClick(() => this.plugin.openSyncCenter()));
+  }
+
+  private renderMediaSection(container: HTMLElement): void {
+    const media = this.card(container, '上传前媒体预检', '仅影响之后的同步预览；不会自动转换、删除原文件或改写笔记链接。', 'media');
+    new Setting(media)
+      .setName('媒体提示阈值（MB）')
+      .setDesc('列出大于阈值的 PNG/JPG、PDF、MP4 和 GIF；有效范围 0.1–1024，默认 2。')
+      .addText((text) => {
+        text.inputEl.type = 'number';
+        text.inputEl.min = '0.1';
+        text.inputEl.max = '1024';
+        text.inputEl.step = '0.1';
+        text.setValue(String(this.plugin.settings.mediaSizeThresholdMB)).onChange(async (value) => {
+          const threshold = Number.parseFloat(value);
+          if (Number.isFinite(threshold) && threshold >= 0.1 && threshold <= 1024) {
+            this.plugin.settings.mediaSizeThresholdMB = threshold;
+            await this.plugin.saveSensitiveSettings();
+          }
+        });
+      });
+    new Setting(media)
+      .setName('图像 PSNR 质量下限（dB）')
+      .setDesc('AVIF 命令自动升档至 q100，仍不达标则不生成目标文件；有效范围 1–60，默认 35。')
+      .addText((text) => {
+        text.inputEl.type = 'number';
+        text.inputEl.min = '1';
+        text.inputEl.max = '60';
+        text.inputEl.step = '1';
+        text.setValue(String(this.plugin.settings.mediaQualityFloorPsnr)).onChange(async (value) => {
+          const floor = Number.parseFloat(value);
+          if (Number.isFinite(floor) && floor >= 1 && floor <= 60) {
+            this.plugin.settings.mediaQualityFloorPsnr = floor;
+            await this.plugin.saveSensitiveSettings();
+          }
+        });
+      });
+    new Setting(media)
+      .setName('媒体排除规则')
+      .setDesc('每行一条 glob，例如“图片存储/**”；仅排除优化建议，不改变同步范围。')
+      .addTextArea((area) => {
+        area.inputEl.rows = 5;
+        area.setValue(this.plugin.settings.mediaExcludePatterns.join('\n')).onChange(async (value) => {
+          this.plugin.settings.mediaExcludePatterns = value.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+          await this.plugin.saveSensitiveSettings();
+        });
+      });
+    new Setting(media)
+      .setName('显示预估节省')
+      .setDesc('按实测投影系数估算，不代表实际转换结果；关闭后仍显示文件清单和转换命令。')
+      .addToggle((toggle) => toggle.setValue(this.plugin.settings.mediaShowSavings).onChange(async (value) => {
+        this.plugin.settings.mediaShowSavings = value;
+        await this.plugin.saveSensitiveSettings();
+      }));
+
+    const usage = this.card(container, '转换命令边界', '在同步预览中逐文件复制命令，并在 Vault 根目录的终端执行；Windows 使用 Git Bash。');
+    new Setting(usage)
+      .setName('所需外部工具')
+      .setDesc('图像需要 Pillow 与 pillow-avif-plugin；PDF 需要 Ghostscript；MP4 需要含 libsvtav1 的 FFmpeg，GIF 需要含 libwebp 的 FFmpeg。插件不会代为安装或执行。');
+    new Setting(usage)
+      .setName('先备份再转换')
+      .setDesc('有损转换不可逆。命令不会覆盖已有目标或删除源文件；生成后需人工检查画质、更新引用，再单独预览同步。');
   }
 
   private renderPrivacySection(container: HTMLElement): void {
@@ -1152,6 +1215,7 @@ class SyncPreviewModal extends GithubVaultSyncModal {
     this.renderGroup(groups, '2 · 笔记文件夹附件', this.preview.noteAttachments);
     this.renderGroup(groups, '3 · Obsidian 插件与配置', this.preview.obsidianConfig);
     this.renderGroup(groups, '4 · 其他文件', this.preview.otherFiles);
+    this.renderMediaAdvice(contentEl);
     const incomingConfig = this.preview.obsidianConfig.filter((file) => file.remoteStatus);
     if (incomingConfig.length) {
       new Setting(contentEl).setName(`远端配置变化：${incomingConfig.length} 个文件`)
@@ -1187,6 +1251,64 @@ class SyncPreviewModal extends GithubVaultSyncModal {
       this.close();
       await this.onSubmit(priority);
     }));
+  }
+
+  private renderMediaAdvice(container: HTMLElement): void {
+    const report = this.preview.media;
+    if (!report?.findings.length) return;
+    const section = container.createDiv({ cls: 'github-vault-sync-preview-group github-vault-sync-media-advice' });
+    section.createEl('h3', { text: `媒体优化建议 · ${report.findings.length} 个文件` });
+    const savings = report.showSavings
+      ? ` · 估算转换后 ${formatBytes(report.estimatedBytes)}，约减少 ${formatBytes(Math.max(0, report.totalBytes - report.estimatedBytes))}`
+      : '';
+    section.createEl('p', { cls: 'setting-item-description',
+      text: `当前合计 ${formatBytes(report.totalBytes)}${savings}。估算来自实测投影系数，不是实际转换保证。` });
+    section.createEl('p', { cls: 'github-vault-sync-media-warning',
+      text: '此建议不会阻塞同步。按钮只复制命令，不执行转换；请在 Vault 根目录终端运行（Windows 用 Git Bash），先备份并检查生成文件，再手动更新引用。' });
+    const list = section.createEl('ul', { cls: 'github-vault-sync-media-list' });
+    let displayed = 0;
+    const displayMore = () => {
+      const end = Math.min(displayed + 30, report.findings.length);
+      for (const finding of report.findings.slice(displayed, end)) {
+        const item = list.createEl('li', { cls: 'github-vault-sync-media-item' });
+        const info = item.createDiv({ cls: 'github-vault-sync-media-info' });
+        info.createEl('span', { cls: 'github-vault-sync-media-path', text: finding.path });
+        const estimate = report.showSavings ? ` → 约 ${formatBytes(finding.estimatedBytes)}` : '';
+        info.createEl('small', {
+          text: `${mediaKindLabel(finding.kind)} · ${formatBytes(finding.size)}${estimate} · 目标 ${finding.targetPath}`
+        });
+        const copy = item.createEl('button', {
+          cls: 'github-vault-sync-note-compare github-vault-sync-media-copy',
+          text: '复制转换命令',
+          attr: { type: 'button', 'aria-label': `复制 ${finding.path} 的转换命令` }
+        });
+        copy.addEventListener('click', async () => {
+          try {
+            await navigator.clipboard.writeText(finding.command);
+            copy.setText('已复制');
+            new Notice(`已复制转换命令：${finding.path}`);
+          } catch {
+            new TextModal(this.app, `手动复制转换命令：${finding.path}`, finding.command).open();
+            new Notice('自动复制失败，请在新窗口中手动复制命令。', 7000);
+          }
+        });
+      }
+      displayed = end;
+      if (more) {
+        more.setText(`再显示 30 个（剩余 ${report.findings.length - displayed}）`);
+        more.toggleClass('is-hidden', displayed >= report.findings.length);
+      }
+    };
+    let more: HTMLButtonElement | undefined;
+    displayMore();
+    if (report.findings.length > displayed) {
+      more = section.createEl('button', {
+        cls: 'github-vault-sync-note-compare',
+        text: `再显示 30 个（剩余 ${report.findings.length - displayed}）`,
+        attr: { type: 'button' }
+      });
+      more.addEventListener('click', displayMore);
+    }
   }
 
   private renderGroup(container: HTMLElement, title: string, files: FileChange[]): void {

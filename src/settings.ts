@@ -5,7 +5,12 @@ import {
   GithubVaultSyncSettings
 } from './types';
 
-export const CURRENT_SETTINGS_SCHEMA = 2;
+export const CURRENT_SETTINGS_SCHEMA = 3;
+
+function normalizePositiveNumber(value: unknown, fallback: number, max: number): number {
+  const parsed = typeof value === 'string' ? Number.parseFloat(value) : value;
+  return typeof parsed === 'number' && Number.isFinite(parsed) && parsed > 0 && parsed <= max ? parsed : fallback;
+}
 
 /**
  * Merge settings from older/prototype builds without dropping user rules.
@@ -24,6 +29,7 @@ export function normalizeSettings(loaded: Partial<GithubVaultSyncSettings> | nul
   const lfs = Array.isArray(source.lfsPatterns) && source.lfsPatterns.length
     ? source.lfsPatterns.map((value) => String(value).trim()).filter(Boolean)
     : [...DEFAULT_LFS_PATTERNS];
+  if ((source.schemaVersion ?? 0) < CURRENT_SETTINGS_SCHEMA) lfs.push('*.avif');
   let gitHttpProxy = '';
   if (typeof source.gitHttpProxy === 'string' && source.gitHttpProxy.trim()) {
     try { gitHttpProxy = normalizeHttpProxy(source.gitHttpProxy); } catch { gitHttpProxy = ''; }
@@ -37,12 +43,22 @@ export function normalizeSettings(loaded: Partial<GithubVaultSyncSettings> | nul
     encryptedFolders: Array.isArray(source.encryptedFolders)
       ? source.encryptedFolders.map((value) => String(value).trim()).filter(Boolean)
       : [...DEFAULT_SETTINGS.encryptedFolders],
-    gitHttpProxy
+    gitHttpProxy,
+    mediaSizeThresholdMB: normalizePositiveNumber(source.mediaSizeThresholdMB, DEFAULT_SETTINGS.mediaSizeThresholdMB, 1024),
+    mediaExcludePatterns: Array.isArray(source.mediaExcludePatterns)
+      ? source.mediaExcludePatterns.map((value) => String(value).trim()).filter(Boolean)
+      : [],
+    mediaQualityFloorPsnr: normalizePositiveNumber(source.mediaQualityFloorPsnr, DEFAULT_SETTINGS.mediaQualityFloorPsnr, 60),
+    mediaShowSavings: typeof source.mediaShowSavings === 'boolean' ? source.mediaShowSavings : DEFAULT_SETTINGS.mediaShowSavings
   } as GithubVaultSyncSettings;
   const changed = source.schemaVersion !== settings.schemaVersion
     || JSON.stringify(source.excludePatterns ?? []) !== JSON.stringify(settings.excludePatterns)
     || JSON.stringify(source.lfsPatterns ?? []) !== JSON.stringify(settings.lfsPatterns)
-    || source.gitHttpProxy !== settings.gitHttpProxy;
+    || JSON.stringify(source.mediaExcludePatterns ?? []) !== JSON.stringify(settings.mediaExcludePatterns)
+    || source.gitHttpProxy !== settings.gitHttpProxy
+    || source.mediaSizeThresholdMB !== settings.mediaSizeThresholdMB
+    || source.mediaQualityFloorPsnr !== settings.mediaQualityFloorPsnr
+    || source.mediaShowSavings !== settings.mediaShowSavings;
   return { settings, changed };
 }
 
