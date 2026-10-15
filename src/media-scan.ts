@@ -32,6 +32,9 @@ import tempfile
 from PIL import Image, ImageChops, ImageStat
 import pillow_avif
 
+sys.stdout.reconfigure(encoding="utf-8")
+sys.stderr.reconfigure(encoding="utf-8")
+
 source, destination, start, floor = sys.argv[1], sys.argv[2], int(sys.argv[3]), float(sys.argv[4])
 if os.path.exists(destination):
     raise FileExistsError(f"目标已存在，未覆盖：{destination}")

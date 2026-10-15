@@ -81,7 +81,10 @@ describe('media optimization pre-check', () => {
     expect(imageCommand).toContain('ImageStat.Stat(difference).rms');
     expect(imageCommand).toContain('subsampling="4:4:4"');
     expect(imageCommand).toContain('raise FileExistsError');
-    expect(buildConversionCommand('x.png', pngRule, 'win32')).toContain("python - 'x.png'");
+    const windowsImageCommand = buildConversionCommand('x.png', pngRule, 'win32');
+    expect(windowsImageCommand).toContain("python - 'x.png'");
+    expect(windowsImageCommand).toContain('sys.stdout.reconfigure(encoding="utf-8")');
+    expect(windowsImageCommand).toContain('sys.stderr.reconfigure(encoding="utf-8")');
 
     const pdf = { kind: 'pdf', projectedRatio: 0.522, quality: 0, targetExtension: '.pdf' } as const;
     const pdfCommand = buildConversionCommand('book.pdf', pdf, 'darwin');
