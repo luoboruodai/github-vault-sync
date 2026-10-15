@@ -15,7 +15,7 @@ import { ENCRYPTED_BUNDLE, generateRecoveryKey, inspectEncryptedBundle,
 import { GithubClient } from './github';
 import { SyncEngine } from './sync-engine';
 import { CurrentNotePlan, embeddedAttachmentPaths } from './current-note';
-import { buildAllConversionCommands, mediaKindLabel } from './media-scan';
+import { buildAllConversionCommands, markAllConversionCommandsCopied, mediaKindLabel } from './media-scan';
 import { isMarkdownNote } from './sync-preview';
 import { nextSettingsTab, SETTINGS_TABS, SettingsSection, showSettingsTab } from './settings-tabs';
 import { normalizeHttpProxy, normalizeSettings } from './settings';
@@ -1268,13 +1268,17 @@ class SyncPreviewModal extends GithubVaultSyncModal {
     const copyAll = section.createEl('button', {
       cls: 'github-vault-sync-note-compare github-vault-sync-media-copy github-vault-sync-media-copy-all',
       text: '一键复制全部转换命令',
-      attr: { type: 'button', 'aria-label': `复制全部 ${report.findings.length} 个媒体转换命令` }
+      attr: { type: 'button', 'aria-label': `复制全部 ${report.findings.length} 个媒体转换命令`, 'aria-pressed': 'false' }
     });
+    let allCopied = false;
     copyAll.addEventListener('click', async () => {
       const commands = buildAllConversionCommands(report);
       try {
         await navigator.clipboard.writeText(commands);
+        allCopied = true;
         copyAll.setText('已复制全部');
+        copyAll.setAttribute('aria-pressed', 'true');
+        markAllConversionCommandsCopied(Array.from(list.querySelectorAll<HTMLButtonElement>('.github-vault-sync-media-copy')));
         new Notice(`已复制 ${report.findings.length} 个媒体转换命令。`);
       } catch {
         new TextModal(this.app, `手动复制全部转换命令（${report.findings.length} 个文件）`, commands).open();
@@ -1296,12 +1300,14 @@ class SyncPreviewModal extends GithubVaultSyncModal {
         const copy = item.createEl('button', {
           cls: 'github-vault-sync-note-compare github-vault-sync-media-copy',
           text: '复制转换命令',
-          attr: { type: 'button', 'aria-label': `复制 ${finding.path} 的转换命令` }
+          attr: { type: 'button', 'aria-label': `复制 ${finding.path} 的转换命令`, 'aria-pressed': 'false' }
         });
+        if (allCopied) markAllConversionCommandsCopied([copy]);
         copy.addEventListener('click', async () => {
           try {
             await navigator.clipboard.writeText(finding.command);
             copy.setText('已复制');
+            copy.setAttribute('aria-pressed', 'true');
             new Notice(`已复制转换命令：${finding.path}`);
           } catch {
             new TextModal(this.app, `手动复制转换命令：${finding.path}`, finding.command).open();

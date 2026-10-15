@@ -148,6 +148,18 @@ export function buildAllConversionCommands(report: MediaOptimizationReport): str
   return report.findings.map((finding) => `# ${finding.path}\n${finding.command}`).join('\n\n');
 }
 
+export interface ConversionCopyButton {
+  setText(text: string): void;
+  setAttribute(name: string, value: string): void;
+}
+
+export function markAllConversionCommandsCopied(buttons: ConversionCopyButton[]): void {
+  for (const button of buttons) {
+    button.setText('已复制');
+    button.setAttribute('aria-pressed', 'true');
+  }
+}
+
 export function scanMediaForOptimization(
   files: VaultFile[],
   settings: Pick<GithubVaultSyncSettings, 'mediaSizeThresholdMB' | 'mediaExcludePatterns' | 'mediaQualityFloorPsnr' | 'mediaShowSavings'>,

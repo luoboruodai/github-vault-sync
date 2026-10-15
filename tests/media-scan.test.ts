@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildAllConversionCommands, buildConversionCommand, mediaKindLabel, scanMediaForOptimization } from '../src/media-scan';
+import { buildAllConversionCommands, buildConversionCommand, markAllConversionCommandsCopied, mediaKindLabel, scanMediaForOptimization } from '../src/media-scan';
 import { VaultFile } from '../src/types';
 
 function file(relPath: string, size: number, excluded = false): VaultFile {
@@ -131,5 +131,21 @@ describe('media optimization pre-check', () => {
     expect(commands.match(/^# bulk\//gm)).toHaveLength(35);
     for (const finding of report.findings) expect(commands).toContain(`# ${finding.path}\n${finding.command}`);
     expect(commands.endsWith('GVS_AVIF')).toBe(true);
+  });
+
+  it('marks every copy button as copied with matching text and pressed state', () => {
+    const buttons = Array.from({ length: 3 }, () => ({
+      text: '',
+      ariaPressed: 'false',
+      setText(text: string) { this.text = text; },
+      setAttribute(name: string, value: string) {
+        if (name === 'aria-pressed') this.ariaPressed = value;
+      }
+    }));
+    markAllConversionCommandsCopied(buttons);
+    for (const button of buttons) {
+      expect(button.text).toBe('已复制');
+      expect(button.ariaPressed).toBe('true');
+    }
   });
 });
