@@ -28,7 +28,7 @@ const expect = (condition, message) => {
 const noise = (size) => `import os
 from PIL import Image
 from pathlib import Path
-root = Path(os.environ.get('GVS_MEDIA_DIR')
+root = Path(os.environ.get('GVS_MEDIA_DIR'))
 root.mkdir(parents=True, exist_ok=True)
 def save(name, width, height, fmt, **kwargs):
     image = Image.frombytes('RGB', (width, height), os.urandom(width * height * 3))
@@ -36,7 +36,9 @@ def save(name, width, height, fmt, **kwargs):
 for index in range(2):
     save(f'image-{index}.png', 320, 240, 'PNG', optimize=False)
 save('photo.jpg', 640, 480, 'JPEG', quality=95)
-pages = [Image.frombytes('RGB', (640, 480), os.urandom(640 * 480 * 3) for _ in range(3))]
+pages = []
+for _ in range(3):
+    pages.append(Image.frombytes('RGB', (640, 480), os.urandom(640 * 480 * 3)))
 pages[0].save(root / 'book.pdf', 'PDF', resolution=150.0, save_all=True, append_images=pages[1:])
 `;
 python(`import os\nos.environ['GVS_MEDIA_DIR'] = r'${media.replace(/\\/g, '/')}'\n${noise}`);
