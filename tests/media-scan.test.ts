@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildAllConversionCommands, buildConversionCommand, markAllConversionCommandsCopied, mediaKindLabel, scanMediaForOptimization } from '../src/media-scan';
+import { buildAllConversionCommands, buildConversionCommand, formatMediaCount, markAllConversionCommandsCopied, mediaKindLabel, scanMediaForOptimization } from '../src/media-scan';
 import { VaultFile } from '../src/types';
 
 function file(relPath: string, size: number, excluded = false): VaultFile {
@@ -147,5 +147,11 @@ describe('media optimization pre-check', () => {
       expect(button.text).toBe('已复制');
       expect(button.ariaPressed).toBe('true');
     }
+  });
+
+  it('formats the visible media count', () => {
+    expect(formatMediaCount(30, 135)).toBe('已显示 30 / 共 135 个');
+    expect(formatMediaCount(60, 135)).toBe('已显示 60 / 共 135 个');
+    expect(formatMediaCount(135, 135)).toBe('已显示 135 / 共 135 个');
   });
 });

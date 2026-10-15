@@ -15,7 +15,7 @@ import { ENCRYPTED_BUNDLE, generateRecoveryKey, inspectEncryptedBundle,
 import { GithubClient } from './github';
 import { SyncEngine } from './sync-engine';
 import { CurrentNotePlan, embeddedAttachmentPaths } from './current-note';
-import { buildAllConversionCommands, markAllConversionCommandsCopied, mediaKindLabel } from './media-scan';
+import { buildAllConversionCommands, formatMediaCount, markAllConversionCommandsCopied, mediaKindLabel } from './media-scan';
 import { isMarkdownNote } from './sync-preview';
 import { nextSettingsTab, SETTINGS_TABS, SettingsSection, showSettingsTab } from './settings-tabs';
 import { normalizeHttpProxy, normalizeSettings } from './settings';
@@ -1286,6 +1286,11 @@ class SyncPreviewModal extends GithubVaultSyncModal {
       }
     });
     const list = section.createEl('ul', { cls: 'github-vault-sync-media-list' });
+    const count = section.createDiv({
+      cls: 'github-vault-sync-media-count',
+      text: formatMediaCount(0, report.findings.length),
+      attr: { role: 'status', 'aria-live': 'polite' }
+    });
     let displayed = 0;
     const displayMore = () => {
       const end = Math.min(displayed + 30, report.findings.length);
@@ -1316,21 +1321,18 @@ class SyncPreviewModal extends GithubVaultSyncModal {
         });
       }
       displayed = end;
-      if (more) {
-        more.setText(`再显示 30 个（剩余 ${report.findings.length - displayed}）`);
-        more.toggleClass('is-hidden', displayed >= report.findings.length);
-      }
+      count.setText(formatMediaCount(displayed, report.findings.length));
     };
-    let more: HTMLButtonElement | undefined;
-    displayMore();
-    if (report.findings.length > displayed) {
-      more = section.createEl('button', {
-        cls: 'github-vault-sync-note-compare',
-        text: `再显示 30 个（剩余 ${report.findings.length - displayed}）`,
-        attr: { type: 'button' }
+    let loading = false;
+    list.addEventListener('scroll', () => {
+      if (loading || displayed >= report.findings.length) return;
+      loading = true;
+      requestAnimationFrame(() => {
+        if (list.scrollTop + list.clientHeight >= list.scrollHeight - 24) displayMore();
+        loading = false;
       });
-      more.addEventListener('click', displayMore);
-    }
+    });
+    displayMore();
   }
 
   private renderGroup(container: HTMLElement, title: string, files: FileChange[]): void {

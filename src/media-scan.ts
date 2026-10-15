@@ -148,6 +148,10 @@ export function buildAllConversionCommands(report: MediaOptimizationReport): str
   return report.findings.map((finding) => `# ${finding.path}\n${finding.command}`).join('\n\n');
 }
 
+export function formatMediaCount(displayed: number, total: number): string {
+  return `已显示 ${displayed} / 共 ${total} 个`;
+}
+
 export interface ConversionCopyButton {
   setText(text: string): void;
   setAttribute(name: string, value: string): void;
