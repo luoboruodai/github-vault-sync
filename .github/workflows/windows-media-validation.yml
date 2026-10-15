@@ -30,11 +30,14 @@ jobs:
       - run: pnpm test
       - run: pnpm build
       - run: choco install -y git-lfs ghostscript ffmpeg
-      - name: Check required tools and encoders
+      - name: Locate Ghostscript and check required tools and encoders
         shell: bash
         run: |
+          GS_BIN=$(find /c/ProgramData/chocolatey/lib /c/Program\ Files/gs -name gswin64c.exe -print -quit)
+          test -n "$GS_BIN"
+          "$GS_BIN" --version
+          echo "GSWIN64C=$GS_BIN" >> "$GITHUB_ENV"
           git lfs version
-          gswin64c --version
           ffmpeg -hide_banner -h encoder=libwebp
           ffmpeg -hide_banner -h encoder=libsvtav1
           python --version
