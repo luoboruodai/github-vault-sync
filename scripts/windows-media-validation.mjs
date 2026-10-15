@@ -30,15 +30,15 @@ from PIL import Image
 from pathlib import Path
 root = Path(os.environ.get('GVS_MEDIA_DIR'))
 root.mkdir(parents=True, exist_ok=True)
-def save(name, width, height, fmt, **kwargs):
-    image = Image.frombytes('RGB', (width, height), os.urandom(width * height * 3))
-    image.save(root / name, format=fmt, **kwargs)
 for index in range(2):
-    save(f'image-{index}.png', 320, 240, 'PNG', optimize=False)
-save('photo.jpg', 640, 480, 'JPEG', quality=95)
+    image = Image.frombytes('RGB', (320, 240), os.urandom(320 * 240 * 3))
+    image.save(root / f'image-{index}.png', format='PNG', optimize=False)
+photo = Image.frombytes('RGB', (640, 480), os.urandom(640 * 480 * 3))
+photo.save(root / 'photo.jpg', format='JPEG', quality=95)
 pages = []
 for _ in range(3):
-    pages.append(Image.frombytes('RGB', (640, 480), os.urandom(640 * 480 * 3)))
+    image = Image.frombytes('RGB', (640, 480), os.urandom(640 * 480 * 3))
+    pages.append(image)
 pages[0].save(root / 'book.pdf', 'PDF', resolution=150.0, save_all=True, append_images=pages[1:])
 `;
 python(`import os\nos.environ['GVS_MEDIA_DIR'] = r'${media.replace(/\\/g, '/')}'\n${noise}`);
