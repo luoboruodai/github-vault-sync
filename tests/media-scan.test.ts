@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildConversionCommand, mediaKindLabel, scanMediaForOptimization } from '../src/media-scan';
+import { buildAllConversionCommands, buildConversionCommand, mediaKindLabel, scanMediaForOptimization } from '../src/media-scan';
 import { VaultFile } from '../src/types';
 
 function file(relPath: string, size: number, excluded = false): VaultFile {
@@ -123,5 +123,13 @@ describe('media optimization pre-check', () => {
     expect(report.findings.map((finding) => finding.path)).toEqual(['above.png']);
     expect(report.totalBytes).toBe(2 * MB + 1);
     expect(scanMediaForOptimization([file('tiny.png', 1024)], settings, 'darwin').estimatedBytes).toBe(0);
+  });
+
+  it('builds one complete command document for every finding, not only the first page', () => {
+    const report = scanMediaForOptimization(Array.from({ length: 35 }, (_, index) => file(`bulk/${index}.png`, 3 * MB)), settings, 'darwin');
+    const commands = buildAllConversionCommands(report);
+    expect(commands.match(/^# bulk\//gm)).toHaveLength(35);
+    for (const finding of report.findings) expect(commands).toContain(`# ${finding.path}\n${finding.command}`);
+    expect(commands.endsWith('GVS_AVIF')).toBe(true);
   });
 });

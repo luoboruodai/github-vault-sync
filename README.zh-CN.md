@@ -80,7 +80,7 @@ v0.1.3 保留当前笔记同步、上传前预览和四个独立设置页，重�
 
 开发版在整库同步预览中列出超过阈值的已纳入 PNG/JPG/JPEG、PDF、MP4 和 GIF 文件。媒体建议**不会阻塞同步**，插件也不会执行转换。「媒体优化」设置页可调整阈值（默认 2 MB）、仅作用于建议的 glob 排除规则、图像 PSNR 质量下限（默认 35 dB），以及是否显示预估节省。
 
-每个文件都提供「复制转换命令」。请在 Vault 根目录的终端执行；Windows 使用 Git Bash。图像依赖 Pillow 和 `pillow-avif-plugin`，PDF 依赖 Ghostscript，MP4 需要含 `libsvtav1` 的 FFmpeg，GIF 需要含 `libwebp` 的 FFmpeg。PNG 从 AVIF q70、JPG 从 q60 开始，随后逐档尝试至 q100，直到达到设定的 PSNR 下限；仍不达标则不留下转换文件。已有目标不会被覆盖，输出重名时会追加短哈希。
+每个文件都提供「复制转换命令」，「一键复制全部转换命令」还会复制全部分页中的命令。请在 Vault 根目录的终端执行；Windows 使用 Git Bash。图像依赖 Pillow 和 `pillow-avif-plugin`，PDF 依赖 Ghostscript，MP4 需要含 `libsvtav1` 的 FFmpeg，GIF 需要含 `libwebp` 的 FFmpeg。PNG 从 AVIF q70、JPG 从 q60 开始，随后逐档尝试至 q100，直到达到设定的 PSNR 下限；仍不达标则不留下转换文件。已有目标不会被覆盖，输出重名时会追加短哈希。
 
 PDF 使用 Ghostscript `/ebook`，MP4 使用 AV1，GIF 生成动态 WebP。预估节省来自真实样本的投影系数，不保证单个文件的实际结果。有损替换不可逆：请保留冷备份，检查生成文件，自行更新笔记引用，再重新打开同步预览。AVIF 已加入默认 Git LFS 规则，并会在 0.2.0 之前的配置迁移时补充一次。
 

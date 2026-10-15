@@ -15,7 +15,7 @@ import { ENCRYPTED_BUNDLE, generateRecoveryKey, inspectEncryptedBundle,
 import { GithubClient } from './github';
 import { SyncEngine } from './sync-engine';
 import { CurrentNotePlan, embeddedAttachmentPaths } from './current-note';
-import { mediaKindLabel } from './media-scan';
+import { buildAllConversionCommands, mediaKindLabel } from './media-scan';
 import { isMarkdownNote } from './sync-preview';
 import { nextSettingsTab, SETTINGS_TABS, SettingsSection, showSettingsTab } from './settings-tabs';
 import { normalizeHttpProxy, normalizeSettings } from './settings';
@@ -820,7 +820,7 @@ class GithubVaultSyncSettingTab extends PluginSettingTab {
         await this.plugin.saveSensitiveSettings();
       }));
 
-    const usage = this.card(container, '转换命令边界', '在同步预览中逐文件复制命令，并在 Vault 根目录的终端执行；Windows 使用 Git Bash。');
+    const usage = this.card(container, '转换命令边界', '在同步预览中逐文件或一键批量复制命令，并在 Vault 根目录的终端执行；Windows 使用 Git Bash。');
     new Setting(usage)
       .setName('所需外部工具')
       .setDesc('图像需要 Pillow 与 pillow-avif-plugin；PDF 需要 Ghostscript；MP4 需要含 libsvtav1 的 FFmpeg，GIF 需要含 libwebp 的 FFmpeg。插件不会代为安装或执行。');
@@ -1264,7 +1264,23 @@ class SyncPreviewModal extends GithubVaultSyncModal {
     section.createEl('p', { cls: 'setting-item-description',
       text: `当前合计 ${formatBytes(report.totalBytes)}${savings}。估算来自实测投影系数，不是实际转换保证。` });
     section.createEl('p', { cls: 'github-vault-sync-media-warning',
-      text: '此建议不会阻塞同步。按钮只复制命令，不执行转换；请在 Vault 根目录终端运行（Windows 用 Git Bash），先备份并检查生成文件，再手动更新引用。' });
+      text: '此建议不会阻塞同步。逐文件和批量按钮都只复制命令，不执行转换；请在 Vault 根目录终端运行（Windows 用 Git Bash），先备份并检查生成文件，再手动更新引用。' });
+    const copyAll = section.createEl('button', {
+      cls: 'github-vault-sync-note-compare github-vault-sync-media-copy github-vault-sync-media-copy-all',
+      text: '一键复制全部转换命令',
+      attr: { type: 'button', 'aria-label': `复制全部 ${report.findings.length} 个媒体转换命令` }
+    });
+    copyAll.addEventListener('click', async () => {
+      const commands = buildAllConversionCommands(report);
+      try {
+        await navigator.clipboard.writeText(commands);
+        copyAll.setText('已复制全部');
+        new Notice(`已复制 ${report.findings.length} 个媒体转换命令。`);
+      } catch {
+        new TextModal(this.app, `手动复制全部转换命令（${report.findings.length} 个文件）`, commands).open();
+        new Notice('自动复制失败，请在新窗口中手动复制全部命令。', 7000);
+      }
+    });
     const list = section.createEl('ul', { cls: 'github-vault-sync-media-list' });
     let displayed = 0;
     const displayMore = () => {

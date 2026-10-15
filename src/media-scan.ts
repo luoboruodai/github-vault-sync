@@ -144,6 +144,10 @@ export function buildConversionCommand(
   return `${noClobberPrefix(targetPath)}ffmpeg -n -i ${input} -c:v libwebp -loop 0 -q:v ${rule.quality} ${output}`;
 }
 
+export function buildAllConversionCommands(report: MediaOptimizationReport): string {
+  return report.findings.map((finding) => `# ${finding.path}\n${finding.command}`).join('\n\n');
+}
+
 export function scanMediaForOptimization(
   files: VaultFile[],
   settings: Pick<GithubVaultSyncSettings, 'mediaSizeThresholdMB' | 'mediaExcludePatterns' | 'mediaQualityFloorPsnr' | 'mediaShowSavings'>,
