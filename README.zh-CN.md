@@ -2,9 +2,7 @@
 
 [English](README.md)
 
-**v0.2.0（开发中，尚未发布）：**在整库同步预览中加入不阻塞同步的媒体优化建议，新增第五个“媒体优化”设置页、带质量护栏的转换命令及 AVIF Git LFS 规则迁移。当前最新可安装版本仍为 v0.1.3。
-
-**v0.1.3（2026-10-14）：**改进第二设备初始化、旧配置安全规则迁移、加密恢复顺序、Git LFS 文件落地、仓库级代理诊断及旧 Electron 样式回退。下载单一 [v0.1.3 安装 ZIP](releases/github-vault-sync-0.1.3.zip)。Windows 原生第二设备验收仍待完成，详见[验证范围与已知限制](docs/VALIDATION_v0.1.3.md)。
+**v0.2.0（2026-10-16）：**加入不阻塞同步的媒体优化建议、第五个设置页、带质量护栏的转换命令、一键复制与复制状态同步、AVIF Git LFS 规则迁移，以及带多重确认的远程删库同名重建流程。下载单一 [v0.2.0 安装 ZIP](releases/github-vault-sync-0.2.0.zip)，并阅读[更新说明](docs/RELEASE_NOTES_v0.2.0.md)。Windows 原生 Obsidian GUI 验收继续延期，详见[验证范围与已知限制](docs/VALIDATION_v0.2.0.md)。
 
  · [开发过程与交接记录](docs/PROJECT_HISTORY.md)
 
@@ -41,12 +39,12 @@
   此阅读器不支持视频播放，请使用上方链接。
 </video>
 
-## 安装 v0.1.3
+## 安装 v0.2.0
 
-v0.1.3 保留当前笔记同步、上传前预览和四个独立设置页，重点加固第二设备加密配置及 Git/LFS 初始化，补齐旧版安全排除规则并加入仓库级代理诊断。详见[更新说明](docs/RELEASE_NOTES_v0.1.3.md)与[独立安装／升级指南](docs/install/README.zh-CN.md)。
+v0.2.0 保留先预览再同步，加入媒体优化建议、五个独立设置页、更稳妥的批量复制交互，以及带多重确认的远程仓库重建流程。详见[更新说明](docs/RELEASE_NOTES_v0.2.0.md)与[独立安装／升级指南](docs/install/README.zh-CN.md)。
 
 1. 先备份 Obsidian Vault。安装 Git；如需同步图片、PDF 等符合附件规则的文件，另需安装 Git LFS。
-2. 打开本项目 GitHub 的 **Releases**，下载 `github-vault-sync-0.1.3.zip`。**唯一手动上传的 Release 资产**就是此 ZIP；仓库也保留同一份 [`releases/github-vault-sync-0.1.3.zip`](releases/github-vault-sync-0.1.3.zip)。GitHub 自动生成的“Source code (zip/tar.gz)”**不是可安装插件包**，因为项目根目录不收录构建后的 `main.js`。
+2. 打开本项目 GitHub 的 **Releases**，下载 `github-vault-sync-0.2.0.zip`。**唯一手动上传的 Release 资产**就是此 ZIP；仓库也保留同一份 [`releases/github-vault-sync-0.2.0.zip`](releases/github-vault-sync-0.2.0.zip)。GitHub 自动生成的“Source code (zip/tar.gz)”**不是可安装插件包**，因为项目根目录不收录构建后的 `main.js`。
 3. 保存笔记并正常退出 Obsidian，然后将 ZIP 解压到 `<Vault>/.obsidian/plugins/`，确认结果为：
 
    ```text
@@ -60,7 +58,7 @@ v0.1.3 保留当前笔记同步、上传前预览和四个独立设置页，重�
    不要多套一层 `github-vault-sync/`。ZIP 已含全部插件文件和双语安装说明；手动安装不用再单独下载 Release 资产，也无需 Node.js、pnpm。Git 及按附件规则需要的 Git LFS 仍是**系统层依赖**。安装包不含 Token、恢复密钥或个人笔记。
 4. 重新打开 Obsidian，在「设置 → 第三方插件」启用 **GitHub Vault Sync**。适用于 **Windows 和 macOS 的 Obsidian 桌面版 1.13.0+**（也支持 Linux 桌面版）；不支持移动端。Windows、macOS 使用同一个 ZIP。
 
-如果你当前已经安装标为 `0.4.0` 的本地原型，公开 `0.1.0` 才是**首次公开发行**；`0.1.3` 延续这一公开版本系列，不等同于内部 `0.4.0` 的版本降级或升级。无需仅为了下载公开包就替换正常运行的安装；手动替换前请备份 Vault，并保留本地的 `data.json`。
+如果你当前已经安装标为 `0.4.0` 的本地原型，公开 `0.1.0` 才是**首次公开发行**；`0.2.0` 延续这一公开版本系列，不等同于内部 `0.4.0` 的版本降级或升级。无需仅为了下载公开包就替换正常运行的安装；手动替换前请备份 Vault，并保留本地的 `data.json`。
 
 ## 连接自己的私有笔记仓库
 
@@ -76,17 +74,17 @@ v0.1.3 保留当前笔记同步、上传前预览和四个独立设置页，重�
 
 进度条在 Git 能报告文件／对象数量时显示阶段百分比；没有可靠上传计数时显示不确定进度，不假报进度。**及时检查**在本地改动后按设定延迟（默认 90 秒）检查，并每 5 分钟检查远端，**绝不绕过预览自动上传**。
 
-## 上传前媒体优化（v0.2.0 开发版）
+## 上传前媒体优化（v0.2.0）
 
-开发版在整库同步预览中列出超过阈值的已纳入 PNG/JPG/JPEG、PDF、MP4 和 GIF 文件。媒体建议**不会阻塞同步**，插件也不会执行转换。「媒体优化」设置页可调整阈值（默认 2 MB）、仅作用于建议的 glob 排除规则、图像 PSNR 质量下限（默认 35 dB），以及是否显示预估节省。
+v0.2.0 在整库同步预览中列出超过阈值的已纳入 PNG/JPG/JPEG、PDF、MP4 和 GIF 文件。媒体建议**不会阻塞同步**，插件也不会执行转换。「媒体优化」设置页可调整阈值（默认 2 MB）、仅作用于建议的 glob 排除规则、图像 PSNR 质量下限（默认 35 dB），以及是否显示预估节省。
 
-每个文件都提供「复制转换命令」，「一键复制全部转换命令」还会复制全部分页中的命令。请在 Vault 根目录的终端执行；Windows 使用 Git Bash。图像依赖 Pillow 和 `pillow-avif-plugin`，PDF 依赖 Ghostscript，MP4 需要含 `libsvtav1` 的 FFmpeg，GIF 需要含 `libwebp` 的 FFmpeg。PNG 从 AVIF q70、JPG 从 q60 开始，随后逐档尝试至 q100，直到达到设定的 PSNR 下限；仍不达标则不留下转换文件。已有目标不会被覆盖，输出重名时会追加短哈希。
+每个文件都提供「复制转换命令」，「一键复制全部转换命令」还会复制全部分页中的命令。批量复制成功后，当前按钮和后续加载的条目会同步显示复制状态；滚动到底部会自动追加 30 项并更新数量。请在 Vault 根目录的终端执行；Windows 使用 Git Bash。图像依赖 Pillow 和 `pillow-avif-plugin`，PDF 依赖 Ghostscript，MP4 需要含 `libsvtav1` 的 FFmpeg，GIF 需要含 `libwebp` 的 FFmpeg。PNG 从 AVIF q70、JPG 从 q60 开始，随后逐档尝试至 q100，直到达到设定的 PSNR 下限；仍不达标则不留下转换文件。已有目标不会被覆盖，输出重名时会追加短哈希。
 
 PDF 使用 Ghostscript `/ebook`，MP4 使用 AV1，GIF 生成动态 WebP。预估节省来自真实样本的投影系数，不保证单个文件的实际结果。有损替换不可逆：请保留冷备份，检查生成文件，自行更新笔记引用，再重新打开同步预览。AVIF 已加入默认 Git LFS 规则，并会在 0.2.0 之前的配置迁移时补充一次。
 
 高级设置中另有「远程重建准备」清单。它只显示当前私有仓库及必须完成的冷备份、历史优化和第二设备暂停检查，不执行删除或重建。
 
-「账户与仓库」页还提供**远程删库同名重建**。它先读取远端状态，并在 Vault 之外创建和验证 Git bundle。只有用户确认冷备份与要保留的当前历史、第二设备暂停、原 Git 与 LFS 历史永久丢失，并精确输入 `owner/repo` 后，危险按钮才会启用。随后才删除仓库、核验 404、按原 issues／wiki 设置私有重建、强制推送当前本地历史并核对远端 SHA。删除后的任何阶段失败都不会自动重试删除；应查看失败阶段并从 bundle 或当前仓库恢复。另一台设备必须先备份并重新克隆，再恢复同步。
+「账户与仓库」页还提供**远程删库同名重建**。它先读取远端状态，并在 Vault 之外创建和验证 Git bundle。只有用户确认冷备份与要保留的当前历史、第二设备暂停、原 Git 与 LFS 历史永久丢失，并精确输入 `owner/repo` 后，危险按钮才会启用。随后才删除仓库、核验 404、按原 issues／wiki 设置私有重建、强制推送当前本地历史并核对远端 SHA。删除后的任何阶段失败都不会自动重试删除；应查看失败阶段并从 bundle 或当前仓库恢复。另一台设备必须先备份旧克隆，再重新克隆并执行 `git lfs pull`，核对插件绑定与恢复密钥后才能恢复双端同步。
 
 ## 加密配置与恢复密钥
 
@@ -96,7 +94,7 @@ PDF 使用 Ghostscript `/ebook`，MP4 使用 AV1，GIF 生成动态 WebP。预�
 
 ## 跨平台验证
 
-macOS／Windows CI 会运行 TypeScript 检查、临时本地 Git/Git LFS 集成测试和生产构建。**Release 标签 CI 还会核对 ZIP 与构建产物；`main`／PR 开发构建不要求提供未发布版本的 ZIP。**CI 不是 Windows 的 Obsidian 图形界面实机测试，也无法保证适配所有第三方主题或 Git 安装方式。本轮另在 macOS 宿主验证了 v0.1.3 运行版本、四页设置和配置安全迁移，未执行真实同步或恢复。详见[验证范围](docs/VALIDATION_v0.1.3.md)；遇到平台问题请提供系统、Obsidian 版本及不含密钥的诊断信息。CI 不接触真实笔记库或 GitHub Token。
+macOS／Windows CI 会运行 TypeScript 检查、临时本地 Git/Git LFS 集成测试和生产构建。**Release 标签 CI 还会核对 ZIP 与构建产物；`main`／PR 开发构建不要求提供未发布版本的 ZIP。**CI 不是 Windows 的 Obsidian 图形界面实机测试，也无法保证适配所有第三方主题或 Git 安装方式。本轮另在 macOS Obsidian 1.14.4 宿主验证 v0.2.0 运行版本、五个设置页、媒体预览／复制交互、配置安全迁移，以及不执行删除的远程重建确认门控；Windows 原生 Obsidian GUI 验收继续延期。详见[验证范围](docs/VALIDATION_v0.2.0.md)；遇到平台问题请提供系统、Obsidian 版本及不含密钥的诊断信息。CI 不接触真实笔记库或 GitHub Token。
 
 ## 从源码构建
 
@@ -107,7 +105,7 @@ pnpm test
 pnpm build
 ```
 
-构建产物为项目根目录的 `main.js`；发布者可运行 `python scripts/release_archive.py build` 生成并校验白名单 ZIP。包内采用 `docs/install/` 下的独立中英说明，不直接复制仓库 README；在线动效与文档链接固定到本版标签。安装到 Vault 的只需 `manifest.json`、`main.js`、`styles.css`。现成安装包请使用唯一的 [Release ZIP](releases/github-vault-sync-0.1.3.zip)。架构、设计决策、测试和已脱敏的开发对话时间线见 [项目交接文档](docs/PROJECT_HISTORY.md)。
+构建产物为项目根目录的 `main.js`；发布者可运行 `python scripts/release_archive.py build` 生成并校验白名单 ZIP。包内采用 `docs/install/` 下的独立中英说明，不直接复制仓库 README；在线动效与文档链接固定到本版标签。安装到 Vault 的只需 `manifest.json`、`main.js`、`styles.css`。现成安装包请使用唯一的 [Release ZIP](releases/github-vault-sync-0.2.0.zip)。架构、设计决策、测试和已脱敏的开发对话时间线见 [项目交接文档](docs/PROJECT_HISTORY.md)。
 
 ## 安全提示
 
