@@ -518,11 +518,20 @@ export class GitService {
   }
 
   async push(branch: string, onProgress?: (progress: GitTransferProgress) => void): Promise<void> {
+    await this.pushInternal(branch, false, onProgress);
+  }
+
+  async forcePush(branch: string, onProgress?: (progress: GitTransferProgress) => void): Promise<void> {
+    await this.pushInternal(branch, true, onProgress);
+  }
+
+  private async pushInternal(branch: string, force: boolean, onProgress?: (progress: GitTransferProgress) => void): Promise<void> {
     // A first Git LFS push can contain thousands of attachments and take far
     // longer than a normal Git request on a slow connection.
     let recent = '';
     let last = '';
-    await this.run(['push', '--set-upstream', 'origin', branch], {
+    const args = ['push', ...(force ? ['--force'] : []), '--set-upstream', 'origin', branch];
+    await this.run(args, {
       timeoutMs: 3 * 60 * 60 * 1000,
       onOutput: (chunk) => {
         recent = (recent + chunk.replace(/\x1b\[[0-9;]*m/g, '')).slice(-4096);

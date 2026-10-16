@@ -12,11 +12,13 @@ import path from 'node:path';
 import { promises as fs } from 'node:fs';
 import { ENCRYPTED_BUNDLE, generateRecoveryKey, inspectEncryptedBundle,
   validateRecoveryKey, writeRecoveryKeyFile } from './encrypted-bundle';
-import { GithubClient } from './github';
+import { GithubApiError, GithubClient } from './github';
 import { SyncEngine } from './sync-engine';
 import { CurrentNotePlan, embeddedAttachmentPaths } from './current-note';
 import { buildAllConversionCommands, formatMediaCount, markAllConversionCommandsCopied, mediaKindLabel } from './media-scan';
-import { buildRemoteRebuildChecklist } from './rebuild';
+import { buildRemoteRebuildChecklist, executeRemoteRebuild, RemoteRebuildConfirmation, RemoteRebuildPreflight,
+  RemoteRebuildResult } from './rebuild';
+import { backupDataDirectory } from './platform-paths';
 import { isMarkdownNote } from './sync-preview';
 import { nextSettingsTab, SETTINGS_TABS, SettingsSection, showSettingsTab } from './settings-tabs';
 import { normalizeHttpProxy, normalizeSettings } from './settings';
@@ -637,6 +639,86 @@ export default class GithubVaultSyncPlugin extends Plugin {
     new TextModal(this.app, '远程重建准备', buildRemoteRebuildChecklist(repo, this.settings.lastRemoteSha)).open();
   }
 
+  private async createRemoteRebuildBundle(repo: RepoBinding, localSha: string): Promise<string> {
+    const directory = path.join(backupDataDirectory(), 'remote-rebuild');
+    await fs.mkdir(directory, { recursive: true, mode: 0o700 });
+    const filename = `${repo.owner}-${repo.name}-${localSha}.bundle`.replace(/[^A-Za-z0-9._-]/g, '-');
+    const bundlePath = path.join(directory, filename);
+    try {
+      const stat = await fs.stat(bundlePath);
+      if (!stat.isFile() || stat.size === 0) throw new Error(`Git bundle 无效：${bundlePath}`);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+      await this.engine.git.run(['bundle', 'create', bundlePath, '--all']);
+    }
+    await this.engine.git.run(['bundle', 'verify', bundlePath]);
+    return bundlePath;
+  }
+
+  async openRemoteRebuild(): Promise<void> {
+    const repo = this.settings.repo;
+    if (!repo?.private || !this.settings.token) {
+      new Notice('请先连接 GitHub 并绑定一个私有仓库。');
+      return;
+    }
+    try {
+      const client = new GithubClient(this.settings);
+      const remote = await client.getRepository(repo.owner, repo.name);
+      if (!remote.private) throw new Error('当前远端不是私有仓库，停止重建。');
+      if (remote.default_branch && remote.default_branch !== repo.branch) {
+        throw new Error(`远端默认分支 ${remote.default_branch} 与绑定分支 ${repo.branch} 不一致，停止重建。`);
+      }
+      if (remote.permissions?.admin === false) throw new Error('当前凭据没有删除该仓库所需的管理权限。');
+      if (remote.permissions?.push === false) throw new Error('当前凭据不能向该仓库推送。');
+      const login = (await client.getAuthenticatedUser()).login;
+      if (login.toLowerCase() !== repo.owner.toLowerCase()) {
+        throw new Error(`当前登录账号 ${login} 与仓库所有者 ${repo.owner} 不一致，停止同名重建。`);
+      }
+      const localSha = await this.engine.git.headSha();
+      if (!localSha) throw new Error('本地没有可推送的提交。');
+      const remoteSha = (await this.engine.git.tryText(['ls-remote', 'origin', `refs/heads/${repo.branch}`]))?.trim() || '';
+      const uncommittedChanges = (await this.engine.git.status()).length;
+      const preflight: RemoteRebuildPreflight = {
+        repo,
+        localSha,
+        remoteSha,
+        hasIssues: remote.has_issues ?? true,
+        hasWiki: remote.has_wiki ?? true,
+        stars: remote.stargazers_count ?? 0,
+        uncommittedChanges,
+        bundlePath: await this.createRemoteRebuildBundle(repo, localSha)
+      };
+      new RemoteRebuildModal(this.app, preflight, async (confirmation): Promise<RemoteRebuildResult> => {
+        const result = await executeRemoteRebuild(preflight, confirmation, {
+          deleteRemote: () => client.deleteRepository(repo.owner, repo.name),
+          assertRemoteDeleted: async () => {
+            try {
+              await client.getRepository(repo.owner, repo.name);
+            } catch (error) {
+              if (error instanceof GithubApiError && error.status === 404) return;
+              throw error;
+            }
+            throw new Error('删除后仓库仍可读取，未继续重建。');
+          },
+          recreateRemote: async (hasIssues, hasWiki) => {
+            const created = await client.createPrivateRepository(repo.name, undefined, { hasIssues, hasWiki });
+            if (!created.private || created.name !== repo.name || created.owner.login.toLowerCase() !== repo.owner.toLowerCase()) {
+              throw new Error('同名重建返回的仓库所有者、名称或私有性与预期不一致。');
+            }
+          },
+          forcePush: () => this.engine.git.forcePush(repo.branch),
+          readRemoteSha: async () => (await this.engine.git.tryText(['ls-remote', 'origin', `refs/heads/${repo.branch}`]))?.trim() || null
+        });
+        this.settings.lastRemoteSha = result.remoteSha;
+        await this.saveSensitiveSettings();
+        this.addLog('info', `Recreated ${repo.owner}/${repo.name} and pushed ${result.remoteSha}`);
+        return result;
+      }).open();
+    } catch (error) {
+      new Notice(`远程重建预检失败：${error instanceof Error ? error.message : String(error)}`, 10000);
+    }
+  }
+
   async disconnect(): Promise<void> {
     new ConfirmModal(this.app, '断开同步', '这会清除插件中的 GitHub 令牌和仓库绑定，但不会删除 Vault 中的 .git 或笔记。', async () => {
       this.settings.token = '';
@@ -894,6 +976,10 @@ class GithubVaultSyncSettingTab extends PluginSettingTab {
         }));
     }
     new Setting(account)
+      .setName('远程删库同名重建')
+      .setDesc('高风险：先预检并创建 Git bundle，精确确认后删除当前私有仓库、按原设置同名重建并推送当前本地历史。')
+      .addButton((button) => button.setButtonText('预览并执行').setWarning().onClick(() => void this.plugin.openRemoteRebuild()));
+    new Setting(account)
       .setName('断开同步')
       .setDesc('清除本插件的 GitHub 令牌和仓库绑定，不删除 Vault 笔记或本地 .git。')
       .addButton((button) => button.setButtonText('断开并清除凭据').setWarning().onClick(() => void this.plugin.disconnect()));
@@ -1067,6 +1153,87 @@ class RepositoryModal extends GithubVaultSyncModal {
     new Setting(contentEl).setName('GitHub 用户名').addText((text) => text.setValue(this.owner).onChange((value) => { this.owner = value.trim(); }));
     new Setting(contentEl).setName('仓库名').setDesc('想保留旧库且不合并，请新建一个不同名字的私有仓库。').addText((text) => text.setValue(this.name).onChange((value) => { this.name = value.trim(); }));
     new Setting(contentEl).addButton((button) => button.setButtonText('新建独立私有仓库').setCta().onClick(() => void this.onSubmit({ type: 'create', name: this.name }))).addButton((button) => button.setButtonText('绑定已有仓库').onClick(() => void this.onSubmit({ type: 'bind', owner: this.owner, name: this.name }))).addButton((button) => button.setButtonText('取消').onClick(() => this.close()));
+  }
+
+  onClose(): void { this.contentEl.empty(); }
+}
+
+class RemoteRebuildModal extends GithubVaultSyncModal {
+  private repository = '';
+  private coldBackup = false;
+  private secondDevicePaused = false;
+  private historyLoss = false;
+  private attempted = false;
+  private submitting = false;
+  private statusEl!: HTMLElement;
+  private submitButton: { setDisabled: (disabled: boolean) => void } | null = null;
+
+  constructor(app: App, private readonly preflight: RemoteRebuildPreflight,
+    private readonly onSubmit: (confirmation: RemoteRebuildConfirmation) => Promise<RemoteRebuildResult>) {
+    super(app);
+  }
+
+  private updateSubmitState(): void {
+    const ready = this.coldBackup && this.secondDevicePaused && this.historyLoss
+      && this.repository.trim() === `${this.preflight.repo.owner}/${this.preflight.repo.name}`;
+    this.submitButton?.setDisabled(this.attempted || this.submitting || !ready);
+  }
+
+  private async submit(): Promise<void> {
+    if (this.attempted || this.submitting) return;
+    const confirmation: RemoteRebuildConfirmation = {
+      repository: this.repository,
+      coldBackupAndCurrentHistoryConfirmed: this.coldBackup,
+      secondDevicePausedConfirmed: this.secondDevicePaused,
+      historyLossConfirmed: this.historyLoss
+    };
+    this.attempted = true;
+    this.submitting = true;
+    this.updateSubmitState();
+    this.statusEl.setText('执行中：删除 → 404 核验 → 同名重建 → 推送 → 远端 SHA 核验。请不要关闭 Obsidian。');
+    try {
+      const result = await this.onSubmit(confirmation);
+      this.statusEl.setText(`已完成：远端 ${this.preflight.repo.branch} 已恢复为 ${result.remoteSha}。第二设备需重新克隆并核对绑定后才能恢复同步。`);
+      new Notice('远程删库同名重建已完成。');
+    } catch (error) {
+      this.statusEl.setText(error instanceof Error ? error.message : String(error));
+    } finally {
+      this.submitting = false;
+      this.updateSubmitState();
+    }
+  }
+
+  onOpen(): void {
+    const { contentEl } = this;
+    this.modalEl.addClass('github-vault-sync-wide-modal');
+    contentEl.empty();
+    contentEl.createEl('h2', { text: '远程删库同名重建' });
+    contentEl.createEl('p', { text: `${this.preflight.repo.owner}/${this.preflight.repo.name} · ${this.preflight.repo.branch} · 私有` });
+    contentEl.createEl('p', { cls: 'setting-item-description',
+      text: `本地 HEAD：${this.preflight.localSha}；远端 SHA：${this.preflight.remoteSha || '尚未记录'}。未提交修改 ${this.preflight.uncommittedChanges} 项，不在推送范围内。` });
+    contentEl.createEl('p', { cls: 'setting-item-description', text: `已验证 Git bundle：${this.preflight.bundlePath}` });
+    contentEl.createEl('p', { cls: 'github-vault-sync-error-text',
+      text: `高风险：原 Git 与 LFS 历史、star（${this.preflight.stars}）、issue、PR 和 wiki 内容（若有）将永久丢失。删除后按原 issues／wiki 设置重建并强制推送当前本地历史；任何阶段失败都不会自动重试删除。` });
+    new Setting(contentEl).setName('冷备份与当前历史')
+      .setDesc('我确认完整冷备份（含 .git）已完成，并且当前本地历史就是要保留的版本。')
+      .addToggle((toggle) => toggle.setValue(false).onChange((value) => { this.coldBackup = value; this.updateSubmitState(); }));
+    new Setting(contentEl).setName('第二设备已暂停')
+      .setDesc('我确认另一台设备已暂停同步且不会打开 Obsidian。')
+      .addToggle((toggle) => toggle.setValue(false).onChange((value) => { this.secondDevicePaused = value; this.updateSubmitState(); }));
+    new Setting(contentEl).setName('永久丢失确认')
+      .setDesc('我确认原 Git 与 LFS 历史、star、issue、PR 和 wiki 内容（若有）将永久丢失。')
+      .addToggle((toggle) => toggle.setValue(false).onChange((value) => { this.historyLoss = value; this.updateSubmitState(); }));
+    new Setting(contentEl).setName('精确输入 owner/repo')
+      .setDesc(`必须输入 ${this.preflight.repo.owner}/${this.preflight.repo.name}，不能只写仓库名。`)
+      .addText((text) => text.setPlaceholder(`${this.preflight.repo.owner}/${this.preflight.repo.name}`)
+        .onChange((value) => { this.repository = value; this.updateSubmitState(); }));
+    this.statusEl = contentEl.createEl('p', { cls: 'setting-item-description', text: '四项条件全部满足前，危险按钮保持禁用。' });
+    const actions = new Setting(contentEl).setClass('github-vault-sync-modal-actions');
+    actions.addButton((button) => button.setButtonText('取消').onClick(() => this.close()));
+    actions.addButton((button) => {
+      this.submitButton = button.setButtonText('删除并同名重建').setWarning().setDisabled(true)
+        .onClick(() => void this.submit());
+    });
   }
 
   onClose(): void { this.contentEl.empty(); }

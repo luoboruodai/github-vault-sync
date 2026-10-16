@@ -144,3 +144,31 @@ it('replaces old plugin-managed excludes without deleting user-authored ignore l
   await service.writeLocalExclude(['.obsidian/plugins/**/data.json']);
   expect((await fs.readFile(excludePath, 'utf8')).match(/BEGIN GITHUB VAULT SYNC EXCLUDES/g)).toHaveLength(1);
 });
+
+describe('force push', () => {
+  it('updates a diverged remote with the optimized history', async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'github-vault-sync-force-push-'));
+    temporaryDirectories.push(root);
+    const vault = path.join(root, 'vault');
+    const remote = path.join(root, 'remote.git');
+    await fs.mkdir(vault, { recursive: true });
+    await execFileAsync('git', ['init', '--bare', remote]);
+    const settings = { ...DEFAULT_SETTINGS, token: '', gitUserName: 'Test', gitUserEmail: 'test@example.invalid' };
+    const service = new GitService(vault, settings);
+    await service.init('main');
+    await service.setRemote({ owner: 'local', name: 'remote', branch: 'main', remoteUrl: remote, private: true });
+    await fs.writeFile(path.join(vault, 'note.md'), '# original\n', 'utf8');
+    expect(await service.commitWorkingTree('original')).toBe(true);
+    await service.push('main');
+    await fs.writeFile(path.join(vault, 'note.md'), '# diverged\n', 'utf8');
+    expect(await service.commitWorkingTree('diverged')).toBe(true);
+    await service.push('main');
+    await service.run(['reset', '--hard', 'HEAD~1']);
+    await fs.writeFile(path.join(vault, 'note.md'), '# optimized\n', 'utf8');
+    expect(await service.commitWorkingTree('optimized')).toBe(true);
+    const optimizedHead = await service.headSha();
+    await service.forcePush('main');
+    const remoteHead = (await execFileAsync('git', ['--git-dir', remote, 'rev-parse', 'refs/heads/main'])).stdout.trim();
+    expect(remoteHead).toBe(optimizedHead);
+  });
+});

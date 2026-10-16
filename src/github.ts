@@ -17,6 +17,9 @@ export interface GithubRepository {
   private: boolean;
   clone_url: string;
   default_branch: string;
+  has_issues?: boolean;
+  has_wiki?: boolean;
+  stargazers_count?: number;
   permissions?: { admin?: boolean; push?: boolean; pull?: boolean };
   owner: { login: string };
 }
@@ -172,16 +175,26 @@ export class GithubClient {
     return this.request<GithubRepository>(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}`);
   }
 
-  async createPrivateRepository(name: string, description?: string): Promise<GithubRepository> {
+  async createPrivateRepository(
+    name: string,
+    description?: string,
+    options: { hasIssues?: boolean; hasWiki?: boolean } = {}
+  ): Promise<GithubRepository> {
     return this.request<GithubRepository>('/user/repos', {
       method: 'POST',
       body: {
         name: name.trim(),
         description: description?.trim() || 'Obsidian vault synchronized by GitHub Vault Sync',
         private: true,
-        auto_init: false
+        auto_init: false,
+        has_issues: options.hasIssues,
+        has_wiki: options.hasWiki
       }
     });
+  }
+
+  async deleteRepository(owner: string, name: string): Promise<void> {
+    return this.request<void>(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}`, { method: 'DELETE' });
   }
 
   async bindRepository(owner: string, name: string): Promise<RepoBinding> {

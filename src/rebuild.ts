@@ -18,3 +18,110 @@ export function buildRemoteRebuildChecklist(repo: RepoBinding, lastRemoteSha: st
     '本入口只显示准备信息，不调用删除或重建接口。'
   ].join('\n');
 }
+
+export interface RemoteRebuildPreflight {
+  repo: RepoBinding;
+  localSha: string;
+  remoteSha: string;
+  hasIssues: boolean;
+  hasWiki: boolean;
+  stars: number;
+  uncommittedChanges: number;
+  bundlePath: string;
+}
+
+export interface RemoteRebuildConfirmation {
+  repository: string;
+  coldBackupAndCurrentHistoryConfirmed: boolean;
+  secondDevicePausedConfirmed: boolean;
+  historyLossConfirmed: boolean;
+}
+
+export interface RemoteRebuildOperations {
+  deleteRemote(): Promise<void>;
+  assertRemoteDeleted(): Promise<void>;
+  recreateRemote(hasIssues: boolean, hasWiki: boolean): Promise<void>;
+  forcePush(): Promise<void>;
+  readRemoteSha(): Promise<string | null>;
+}
+
+export type RemoteRebuildStage = 'preflight' | 'delete' | 'recreate' | 'push' | 'verify';
+
+export class RemoteRebuildStageError extends Error {
+  constructor(readonly stage: RemoteRebuildStage, message: string, readonly cause?: unknown) {
+    super(message);
+    this.name = 'RemoteRebuildStageError';
+  }
+}
+
+export interface RemoteRebuildResult {
+  stage: 'completed';
+  localSha: string;
+  remoteSha: string;
+  bundlePath: string;
+}
+
+export function remoteRebuildConfirmationError(
+  preflight: RemoteRebuildPreflight,
+  confirmation: RemoteRebuildConfirmation
+): string | null {
+  if (!preflight.repo.private) return '只能删库同名重建私有仓库。';
+  if (!preflight.localSha) return '本地没有可推送的提交。';
+  if (!preflight.bundlePath) return '必须先创建并验证本地 Git bundle。';
+  if (confirmation.repository.trim() !== `${preflight.repo.owner}/${preflight.repo.name}`) {
+    return '输入的仓库与当前绑定不一致；请精确输入 owner/repo。';
+  }
+  if (!confirmation.coldBackupAndCurrentHistoryConfirmed) {
+    return '必须确认完整冷备份已完成，并且当前本地历史就是要保留的版本。';
+  }
+  if (!confirmation.secondDevicePausedConfirmed) return '必须确认另一台设备已暂停同步。';
+  if (!confirmation.historyLossConfirmed) return '必须确认原 Git 与 LFS 历史将永久丢失。';
+  return null;
+}
+
+function stageError(stage: RemoteRebuildStage, error: unknown): RemoteRebuildStageError {
+  const detail = error instanceof Error ? `：${error.message}` : `：${String(error)}`;
+  const messages: Record<RemoteRebuildStage, string> = {
+    preflight: '预检未通过',
+    delete: '删除或删除后 404 核验失败；请先核对当前状态，不要自动重试删除',
+    recreate: '同名重建失败；原仓库已删除，请处理当前空仓库，不要再次删除',
+    push: '优化历史推送失败；同名仓库已重建，请只重试推送或从 bundle 恢复，不要再次删除',
+    verify: '推送后远端 SHA 与本地不一致；请检查当前仓库，不要再次删除'
+  };
+  return new RemoteRebuildStageError(stage, `${messages[stage]}${detail}`, error);
+}
+
+export async function executeRemoteRebuild(
+  preflight: RemoteRebuildPreflight,
+  confirmation: RemoteRebuildConfirmation,
+  operations: RemoteRebuildOperations
+): Promise<RemoteRebuildResult> {
+  const confirmationError = remoteRebuildConfirmationError(preflight, confirmation);
+  if (confirmationError) throw new RemoteRebuildStageError('preflight', confirmationError);
+  try {
+    await operations.deleteRemote();
+    await operations.assertRemoteDeleted();
+  } catch (error) {
+    throw stageError('delete', error);
+  }
+  try {
+    await operations.recreateRemote(preflight.hasIssues, preflight.hasWiki);
+  } catch (error) {
+    throw stageError('recreate', error);
+  }
+  try {
+    await operations.forcePush();
+  } catch (error) {
+    throw stageError('push', error);
+  }
+  let remoteSha: string | null;
+  try {
+    remoteSha = await operations.readRemoteSha();
+  } catch (error) {
+    throw stageError('verify', error);
+  }
+  if (remoteSha !== preflight.localSha) {
+    throw new RemoteRebuildStageError('verify', `推送后远端 SHA 与本地不一致：${remoteSha || '未记录'} ≠ ${preflight.localSha}`);
+  }
+  return { stage: 'completed', localSha: preflight.localSha, remoteSha, bundlePath: preflight.bundlePath };
+}

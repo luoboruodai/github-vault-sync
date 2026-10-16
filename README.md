@@ -86,6 +86,8 @@ PDF commands use Ghostscript `/ebook`, MP4 commands use AV1, and GIF commands pr
 
 Advanced settings also include a **Remote rebuild checklist**. It only displays the current private repository and the required backup, history-optimization, and second-device pause checks; it never deletes or recreates a repository.
 
+The **Account & repository** page also includes **Remote delete-and-recreate**. It first reads the remote state and creates and verifies a Git bundle outside the vault. The dangerous action stays disabled until the user confirms the cold backup and desired history, the second-device pause, permanent Git/LFS history loss, and the exact `owner/repo`. Only then does it delete the repository, verify the 404, recreate it privately with the original issues/wiki settings, force-push the current local history, and verify the resulting remote SHA. A failure after deletion never automatically retries deletion; inspect the reported stage and recover from the bundle or the current repository instead. The other device must be backed up and re-cloned before syncing resumes.
+
 ## Encrypted plugin settings and recovery key
 
 Plugin `data.json`, credential dotfiles, and explicitly excluded exceptional plugin directories are **never committed as plaintext**. If enabled, client-side AES-256-GCM encryption stores their backed-up contents in `.github-vault-sync-encrypted/vault.gvs`. The encryption key is local only. Open **View and copy recovery key** to reveal it in a modal and copy it; closing the modal hides the displayed value. Keep an independent, secure copy **outside your vault and outside GitHub**. Anyone with both the encrypted repository and the key can decrypt its plugin credentials; losing the key makes the encrypted copy unrecoverable.
