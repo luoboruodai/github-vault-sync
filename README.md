@@ -84,6 +84,8 @@ Each finding has a **Copy conversion command** action, and **Copy all conversion
 
 PDF commands use Ghostscript `/ebook`, MP4 commands use AV1, and GIF commands produce animated WebP. Estimated savings are projections from the measured vault samples, not guarantees for a particular file. Lossy replacement is irreversible: keep a cold backup, inspect the generated files, update note links yourself, and open a fresh sync preview afterward. AVIF is included in the default Git LFS rules and is added once when migrating pre-0.2.0 settings.
 
+Advanced settings also include a **Remote rebuild checklist**. It only displays the current private repository and the required backup, history-optimization, and second-device pause checks; it never deletes or recreates a repository.
+
 ## Encrypted plugin settings and recovery key
 
 Plugin `data.json`, credential dotfiles, and explicitly excluded exceptional plugin directories are **never committed as plaintext**. If enabled, client-side AES-256-GCM encryption stores their backed-up contents in `.github-vault-sync-encrypted/vault.gvs`. The encryption key is local only. Open **View and copy recovery key** to reveal it in a modal and copy it; closing the modal hides the displayed value. Keep an independent, secure copy **outside your vault and outside GitHub**. Anyone with both the encrypted repository and the key can decrypt its plugin credentials; losing the key makes the encrypted copy unrecoverable.

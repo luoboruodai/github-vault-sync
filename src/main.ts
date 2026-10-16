@@ -16,6 +16,7 @@ import { GithubClient } from './github';
 import { SyncEngine } from './sync-engine';
 import { CurrentNotePlan, embeddedAttachmentPaths } from './current-note';
 import { buildAllConversionCommands, formatMediaCount, markAllConversionCommandsCopied, mediaKindLabel } from './media-scan';
+import { buildRemoteRebuildChecklist } from './rebuild';
 import { isMarkdownNote } from './sync-preview';
 import { nextSettingsTab, SETTINGS_TABS, SettingsSection, showSettingsTab } from './settings-tabs';
 import { normalizeHttpProxy, normalizeSettings } from './settings';
@@ -627,6 +628,15 @@ export default class GithubVaultSyncPlugin extends Plugin {
     new TextModal(this.app, 'GitHub Vault Sync 日志', this.settings.logEntries.map((entry) => `[${formatDateTime(entry.at)}] ${entry.level.toUpperCase()} ${entry.message}`).join('\n')).open();
   }
 
+  openRemoteRebuildChecklist(): void {
+    const repo = this.settings.repo;
+    if (!repo?.private) {
+      new Notice('请先绑定一个私有仓库，再查看重建准备清单。');
+      return;
+    }
+    new TextModal(this.app, '远程重建准备', buildRemoteRebuildChecklist(repo, this.settings.lastRemoteSha)).open();
+  }
+
   async disconnect(): Promise<void> {
     new ConfirmModal(this.app, '断开同步', '这会清除插件中的 GitHub 令牌和仓库绑定，但不会删除 Vault 中的 .git 或笔记。', async () => {
       this.settings.token = '';
@@ -961,6 +971,10 @@ class GithubVaultSyncSettingTab extends PluginSettingTab {
       .setName('诊断工具')
       .addButton((button) => button.setButtonText('检测 Git / LFS').onClick(() => void this.plugin['checkDependencies']()))
       .addButton((button) => button.setButtonText('查看日志').onClick(() => this.plugin.openLogs()));
+    new Setting(tools)
+      .setName('远程重建准备')
+      .setDesc('查看当前私有仓库的冷备份、历史优化和双端暂停清单；本入口不执行删除或重建。')
+      .addButton((button) => button.setButtonText('查看准备清单').onClick(() => this.plugin.openRemoteRebuildChecklist()));
   }
 
   hide(): void {
