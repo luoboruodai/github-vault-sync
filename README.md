@@ -2,9 +2,7 @@
 
 [简体中文](README.zh-CN.md)
 
-**v0.2.0 (under development; not yet released):** adds non-blocking media optimization advice to the full sync preview, a fifth settings page for media rules, guarded conversion commands, and AVIF Git LFS migration. The latest installable release remains v0.1.3.
-
-**v0.1.3 (2026-10-14):** safer second-device bootstrap, legacy settings migration, encrypted-restore ordering, Git LFS hydration, repository-scoped proxy diagnostics and older-Electron CSS fallbacks. Download the single [v0.1.3 installation ZIP](releases/github-vault-sync-0.1.3.zip). Native Windows second-device acceptance is still pending; see the [validation scope and known limits](docs/VALIDATION_v0.1.3.md).
+**v0.2.0 (2026-10-16):** adds non-blocking media optimization advice, a fifth settings page, guarded conversion commands with copy-all and synchronized copied states, AVIF Git LFS migration, and a guarded remote delete-and-recreate workflow. Download the single [v0.2.0 installation ZIP](releases/github-vault-sync-0.2.0.zip) and read the [release notes](docs/RELEASE_NOTES_v0.2.0.md). Native Windows Obsidian GUI acceptance remains deferred; see the [validation scope and known limits](docs/VALIDATION_v0.2.0.md).
 
  · [Developer history](docs/PROJECT_HISTORY.md)
 
@@ -41,12 +39,12 @@ These short **illustrative UI-motion demos** use the plugin stylesheet and repre
   Video playback is not supported in this viewer; use the link above.
 </video>
 
-## Install the v0.1.3 release
+## Install the v0.2.0 release
 
-v0.1.3 retains note-first sync, preview-before-upload and four independent settings pages. It hardens second-device encryption and Git/LFS setup, migrates legacy safety rules, and adds repository-scoped proxy diagnostics. See the [release notes](docs/RELEASE_NOTES_v0.1.3.md) and [standalone install/upgrade guide](docs/install/README.md).
+v0.2.0 retains preview-first synchronization and adds media optimization guidance, five independent settings pages, safer batch-copy interactions, and a guarded remote repository rebuild workflow. See the [release notes](docs/RELEASE_NOTES_v0.2.0.md) and [standalone install/upgrade guide](docs/install/README.md).
 
 1. Back up your Obsidian vault. Install Git; install Git LFS before syncing images or other attachments matched by the plugin's LFS rules.
-2. Open this project's GitHub **Releases** page and download `github-vault-sync-0.1.3.zip`. The **only manually uploaded release asset** is this ZIP; the same file is kept in [`releases/github-vault-sync-0.1.3.zip`](releases/github-vault-sync-0.1.3.zip). GitHub’s automatic “Source code (zip/tar.gz)” downloads are **not** installable plugin bundles because the project root omits the compiled `main.js`.
+2. Open this project's GitHub **Releases** page and download `github-vault-sync-0.2.0.zip`. The **only manually uploaded release asset** is this ZIP; the same file is kept in [`releases/github-vault-sync-0.2.0.zip`](releases/github-vault-sync-0.2.0.zip). GitHub’s automatic “Source code (zip/tar.gz)” downloads are **not** installable plugin bundles because the project root omits the compiled `main.js`.
 3. Save your notes and exit Obsidian normally, then extract the ZIP into `<Vault>/.obsidian/plugins/`. The resulting files must be:
 
    ```text
@@ -60,7 +58,7 @@ v0.1.3 retains note-first sync, preview-before-upload and four independent setti
    Avoid an extra nested `github-vault-sync/github-vault-sync/` directory. The ZIP already contains every plugin file and bilingual setup instructions: no separate Release downloads, Node.js, or pnpm are needed for manual installation. Git and, where applicable, Git LFS remain separate **system prerequisites**. The ZIP contains no tokens, recovery keys, or personal vault data.
 4. Open Obsidian again. In **Settings → Community plugins**, enable **GitHub Vault Sync**. Requires Obsidian desktop **1.13.0+** on **Windows or macOS** (Linux desktop is also supported); mobile Obsidian is not supported. The same ZIP is used for both Windows and macOS.
 
-If you already use a local pre-release labeled `0.4.0`, public `0.1.0` was the **first public release**; `0.1.3` continues that public series and is not a downgrade or upgrade of the internal `0.4.0` build. You need not replace your working installation merely to download the public package. Back up your vault before any manual replacement and leave local `data.json` in place.
+If you already use a local pre-release labeled `0.4.0`, public `0.1.0` was the **first public release**; `0.2.0` continues that public series and is not a downgrade or upgrade of the internal `0.4.0` build. You need not replace your working installation merely to download the public package. Back up your vault before any manual replacement and leave local `data.json` in place.
 
 ## Connect your own private vault repository
 
@@ -76,17 +74,17 @@ Select **Preview and sync** in plugin settings or the Sync Center. Before any up
 
 Progress shows verified staging file counts and Git/LFS object progress where Git reports it; otherwise the transfer indicator remains indeterminate rather than inventing a percentage. **Timely checking** notices local changes after a configurable delay (default 90 seconds) and checks GitHub every five minutes. It **never uploads without your explicit preview and confirmation**.
 
-## Media optimization before upload (v0.2.0 development)
+## Media optimization before upload (v0.2.0)
 
-During a full sync preview, the development build lists included PNG/JPG/JPEG, PDF, MP4, and GIF files larger than the configurable threshold. These suggestions **never block synchronization**, and the plugin does not execute the conversions. The **Media optimization** settings page controls the threshold (default 2 MB), media-only glob exclusions, the image PSNR floor (default 35 dB), and whether estimated savings are shown.
+During a full sync preview, v0.2.0 lists included PNG/JPG/JPEG, PDF, MP4, and GIF files larger than the configurable threshold. These suggestions **never block synchronization**, and the plugin does not execute the conversions. The **Media optimization** settings page controls the threshold (default 2 MB), media-only glob exclusions, the image PSNR floor (default 35 dB), and whether estimated savings are shown.
 
-Each finding has a **Copy conversion command** action, and **Copy all conversion commands** copies every finding, including entries on later pages. Run the copied commands from the vault root in a terminal; on Windows use Git Bash. Images require Pillow and `pillow-avif-plugin`, PDFs require Ghostscript, MP4 commands require FFmpeg with `libsvtav1`, and GIF commands require FFmpeg with `libwebp`. PNG starts at AVIF q70 and JPG at q60; the command then tries higher quality steps through q100 until the configured PSNR floor is met. If the floor still cannot be met, it leaves no converted file. Existing destinations are not overwritten, and colliding output names receive a short hash.
+Each finding has a **Copy conversion command** action, and **Copy all conversion commands** copies every finding, including entries on later pages. A successful batch copy immediately updates the visible buttons and entries loaded afterward; scrolling to the end loads 30 more findings and updates the displayed count. Run the copied commands from the vault root in a terminal; on Windows use Git Bash. Images require Pillow and `pillow-avif-plugin`, PDFs require Ghostscript, MP4 commands require FFmpeg with `libsvtav1`, and GIF commands require FFmpeg with `libwebp`. PNG starts at AVIF q70 and JPG at q60; the command then tries higher quality steps through q100 until the configured PSNR floor is met. If the floor still cannot be met, it leaves no converted file. Existing destinations are not overwritten, and colliding output names receive a short hash.
 
 PDF commands use Ghostscript `/ebook`, MP4 commands use AV1, and GIF commands produce animated WebP. Estimated savings are projections from the measured vault samples, not guarantees for a particular file. Lossy replacement is irreversible: keep a cold backup, inspect the generated files, update note links yourself, and open a fresh sync preview afterward. AVIF is included in the default Git LFS rules and is added once when migrating pre-0.2.0 settings.
 
 Advanced settings also include a **Remote rebuild checklist**. It only displays the current private repository and the required backup, history-optimization, and second-device pause checks; it never deletes or recreates a repository.
 
-The **Account & repository** page also includes **Remote delete-and-recreate**. It first reads the remote state and creates and verifies a Git bundle outside the vault. The dangerous action stays disabled until the user confirms the cold backup and desired history, the second-device pause, permanent Git/LFS history loss, and the exact `owner/repo`. Only then does it delete the repository, verify the 404, recreate it privately with the original issues/wiki settings, force-push the current local history, and verify the resulting remote SHA. A failure after deletion never automatically retries deletion; inspect the reported stage and recover from the bundle or the current repository instead. The other device must be backed up and re-cloned before syncing resumes.
+The **Account & repository** page also includes **Remote delete-and-recreate**. It first reads the remote state and creates and verifies a Git bundle outside the vault. The dangerous action stays disabled until the user confirms the cold backup and desired history, the second-device pause, permanent Git/LFS history loss, and the exact `owner/repo`. Only then does it delete the repository, verify the 404, recreate it privately with the original issues/wiki settings, force-push the current local history, and verify the resulting remote SHA. A failure after deletion never automatically retries deletion; inspect the reported stage and recover from the bundle or the current repository instead. On the other device, back up the old clone, clone the rebuilt repository again and run `git lfs pull`; verify the plugin binding and recovery key before resuming two-device sync.
 
 ## Encrypted plugin settings and recovery key
 
@@ -96,7 +94,7 @@ On another desktop device, install this plugin, bind the same private repository
 
 ## Cross-platform verification
 
-The macOS/Windows CI runs TypeScript checks, temporary local Git/Git LFS integration tests, and a production build. **Release-tag CI also checks that the ZIP matches the built files; `main`/PR development builds do not require an unreleased ZIP.** This is not a Windows Obsidian GUI session or a guarantee for every third-party theme or Git installation. The separate macOS host smoke check covered the running v0.1.3 version, four settings pages, and safe settings migration, not a live sync or restore. See the [validation scope](docs/VALIDATION_v0.1.3.md); report host-specific issues with the Obsidian version, OS, and non-secret diagnostic details. No real vault or GitHub token is used in CI.
+The macOS/Windows CI runs TypeScript checks, temporary local Git/Git LFS integration tests, and a production build. **Release-tag CI also checks that the ZIP matches the built files; `main`/PR development builds do not require an unreleased ZIP.** This is not a Windows Obsidian GUI session or a guarantee for every third-party theme or Git installation. Separate macOS Obsidian 1.14.4 checks covered the running v0.2.0 version, five settings pages, media preview/copy interactions, safe settings migration, and read-only remote-rebuild confirmation gating. Native Windows Obsidian GUI acceptance remains deferred. See the [validation scope](docs/VALIDATION_v0.2.0.md); report host-specific issues with the Obsidian version, OS, and non-secret diagnostic details. No real vault or GitHub token is used in CI.
 
 ## Build from source
 
@@ -107,7 +105,7 @@ pnpm test
 pnpm build
 ```
 
-The build creates `main.js` in the project root; release maintainers can run `python scripts/release_archive.py build` to create and verify the allowlisted ZIP. The ZIP uses the independent bilingual guides under `docs/install/`, not these repository READMEs; its online video/documentation links point to the release tag. Only `manifest.json`, `main.js`, and `styles.css` belong in an installed plugin folder. For the ready-to-install package use the single [release ZIP](releases/github-vault-sync-0.1.3.zip) instead. See [the developer handoff](docs/PROJECT_HISTORY.md) for architecture, design decisions, tests, and the public-safe development conversation timeline.
+The build creates `main.js` in the project root; release maintainers can run `python scripts/release_archive.py build` to create and verify the allowlisted ZIP. The ZIP uses the independent bilingual guides under `docs/install/`, not these repository READMEs; its online video/documentation links point to the release tag. Only `manifest.json`, `main.js`, and `styles.css` belong in an installed plugin folder. For the ready-to-install package use the single [release ZIP](releases/github-vault-sync-0.2.0.zip) instead. See [the developer handoff](docs/PROJECT_HISTORY.md) for architecture, design decisions, tests, and the public-safe development conversation timeline.
 
 ## Security note
 
