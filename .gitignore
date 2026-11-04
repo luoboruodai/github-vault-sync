@@ -11,6 +11,11 @@ dist/
 # Local handoff and credentials must never enter the public GitHub repository
 private/
 /PROJECT.md
+/AGENTS.md
+/.obsidian/
+/.cache/
+/cache/
+*.log
 .env
 .env.*
 *.key
@@ -19,3 +24,6 @@ private/
 .netrc
 .pypirc
 .DS_Store
+
+# Local-only media/LFS working plan; public summary lives in PROJECT_CONTEXT.md
+/github-vault-sync-媒体优化与LFS瘦身计划.md

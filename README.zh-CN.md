@@ -1,43 +1,23 @@
 # GitHub Vault Sync
 
-[English](README.md)
+[English](README.md) · [简体中文](README.zh-CN.md)
 
-**v0.2.0（2026-10-16）：**加入不阻塞同步的媒体优化建议、第五个设置页、带质量护栏的转换命令、一键复制与复制状态同步、AVIF Git LFS 规则迁移，以及带多重确认的远程删库同名重建流程。下载单一 [v0.2.0 安装 ZIP](releases/github-vault-sync-0.2.0.zip)，并阅读[更新说明](docs/RELEASE_NOTES_v0.2.0.md)。Windows 原生 Obsidian GUI 验收继续延期，详见[验证范围与已知限制](docs/VALIDATION_v0.2.0.md)。
+> **先预览，再决定如何同步；笔记始终放在你自己的私有仓库。**
+>
+> 用 GitHub 和 Git LFS 跨设备同步 Obsidian 桌面端 Vault 的插件，支持冲突审阅及可选的加密配置备份。这个**公开源码仓库**不是笔记或凭据的存放地。
 
- · [开发过程与交接记录](docs/PROJECT_HISTORY.md)
+[**下载 v0.2.0 安装 ZIP**](https://github.com/luoboruodai/github-vault-sync/releases/download/v0.2.0/github-vault-sync-0.2.0.zip) · [安装／升级指南](docs/install/README.zh-CN.md) · [发布说明](docs/RELEASE_NOTES_v0.2.0.md) · [开发接手指南](PROJECT_CONTEXT.md#简体中文)
 
-**GitHub Vault Sync** 是 Obsidian 桌面端插件，可将笔记库同步到**另外一个由你控制的私有 GitHub 仓库**。本项目公开仓库只发布插件源码与安装包，**不要把笔记或凭据上传到本公开仓库**。
+**运行条件：**Obsidian 桌面端 1.13.0+、Git；同步符合 LFS 规则的附件还需 Git LFS。支持 Windows 和 macOS，也支持 Linux 桌面端；不支持移动端。正式 ZIP 需要手动安装；GitHub 自动生成的 “Source code” 压缩包**不是**可安装插件。
 
-## UI Motion 界面动效导览（v0.1.3）
+### 为什么使用它？
 
-以下是使用插件样式和代表性设置／预览结构、以示例数据制作的**界面动效演示**。它们展示状态变化、先预览再处理冲突，以及加密配置的边界；不是 Obsidian 实际运行录屏，也不会执行同步。已确认的视频均为 1280×720、30fps 的 H.264 MP4。在 GitHub 页面请使用下方 MP4 链接；允许 HTML 视频的 Markdown 阅读器还可显示内嵌播放器。
+- **上传前审阅：**先只读预览笔记、附件、配置及其他文件，再选方向或逐项处理冲突，明确确认后才执行。
+- **始终由你决定：**定时检查只提醒，绝不静默上传；预览后任一端发生变化会使旧授权失效。
+- **保护敏感配置：**禁止明文凭据提交；启用后可将特殊配置加密备份到**私有**笔记仓库，恢复密钥需另行保管。
+- **预先规划媒体体积：**v0.2.0 提供受保护的手动转换命令建议；不会自动转换文件或修改笔记链接。
 
-### 状态流转：本地变化 → 读取远端 → 预览 → 完成
-
-[观看状态流转 MP4](docs/media/overview-b-status-flow.mp4) · 4.8 秒
-
-<video controls preload="metadata" width="720" style="max-width:100%;height:auto">
-  <source src="docs/media/overview-b-status-flow.mp4" type="video/mp4">
-  此阅读器不支持视频播放，请使用上方链接。
-</video>
-
-### 预览 → 选择 → 确认
-
-[观看预览流程 MP4](docs/media/safe-sync-a-preview.mp4) · 7.2 秒
-
-<video controls preload="metadata" width="720" style="max-width:100%;height:auto">
-  <source src="docs/media/safe-sync-a-preview.mp4" type="video/mp4">
-  此阅读器不支持视频播放，请使用上方链接。
-</video>
-
-### 加密配置边界
-
-[观看加密边界 MP4](docs/media/recovery-c-encrypted-boundary.mp4) · 4.8 秒
-
-<video controls preload="metadata" width="720" style="max-width:100%;height:auto">
-  <source src="docs/media/recovery-c-encrypted-boundary.mp4" type="video/mp4">
-  此阅读器不支持视频播放，请使用上方链接。
-</video>
+**最新正式软件版本：v0.2.0（2026-10-16）。** [验证范围与限制](docs/VALIDATION_v0.2.0.md)包含尚未完成的 Windows 原生 Obsidian GUI 验收。下文界面演示使用示意数据，并非真实笔记库录屏。
 
 ## 安装 v0.2.0
 
@@ -96,6 +76,37 @@ PDF 使用 Ghostscript `/ebook`，MP4 使用 AV1，GIF 生成动态 WebP。预�
 
 macOS／Windows CI 会运行 TypeScript 检查、临时本地 Git/Git LFS 集成测试和生产构建。**Release 标签 CI 还会核对 ZIP 与构建产物；`main`／PR 开发构建不要求提供未发布版本的 ZIP。**CI 不是 Windows 的 Obsidian 图形界面实机测试，也无法保证适配所有第三方主题或 Git 安装方式。本轮另在 macOS Obsidian 1.14.4 宿主验证 v0.2.0 运行版本、五个设置页、媒体预览／复制交互、配置安全迁移，以及不执行删除的远程重建确认门控；Windows 原生 Obsidian GUI 验收继续延期。详见[验证范围](docs/VALIDATION_v0.2.0.md)；遇到平台问题请提供系统、Obsidian 版本及不含密钥的诊断信息。CI 不接触真实笔记库或 GitHub Token。
 
+## UI Motion 界面动效导览（v0.1.3）
+
+以下是基于 v0.1.3 插件样式和代表性设置／预览结构、以示例数据制作的**界面动效演示**。它们展示状态变化、先预览再处理冲突，以及加密配置的边界；不是 Obsidian 实际运行录屏，也不会执行同步。已确认的视频均为 1280×720、30fps 的 H.264 MP4。GitHub 页面请使用下方 MP4 链接；支持 HTML 视频的阅读器也可以使用内嵌播放器。
+
+### 状态流转：本地变化 → 读取远端 → 预览 → 完成
+
+[观看状态流转 MP4](docs/media/overview-b-status-flow.mp4) · 4.8 秒
+
+<video controls preload="metadata" width="720" style="max-width:100%;height:auto">
+  <source src="docs/media/overview-b-status-flow.mp4" type="video/mp4">
+  此阅读器不支持视频播放，请使用上方链接。
+</video>
+
+### 预览 → 选择 → 确认
+
+[观看预览流程 MP4](docs/media/safe-sync-a-preview.mp4) · 7.2 秒
+
+<video controls preload="metadata" width="720" style="max-width:100%;height:auto">
+  <source src="docs/media/safe-sync-a-preview.mp4" type="video/mp4">
+  此阅读器不支持视频播放，请使用上方链接。
+</video>
+
+### 加密配置边界
+
+[观看加密边界 MP4](docs/media/recovery-c-encrypted-boundary.mp4) · 4.8 秒
+
+<video controls preload="metadata" width="720" style="max-width:100%;height:auto">
+  <source src="docs/media/recovery-c-encrypted-boundary.mp4" type="video/mp4">
+  此阅读器不支持视频播放，请使用上方链接。
+</video>
+
 ## 从源码构建
 
 ```bash
@@ -105,7 +116,7 @@ pnpm test
 pnpm build
 ```
 
-构建产物为项目根目录的 `main.js`；发布者可运行 `python scripts/release_archive.py build` 生成并校验白名单 ZIP。包内采用 `docs/install/` 下的独立中英说明，不直接复制仓库 README；在线动效与文档链接固定到本版标签。安装到 Vault 的只需 `manifest.json`、`main.js`、`styles.css`。现成安装包请使用唯一的 [Release ZIP](releases/github-vault-sync-0.2.0.zip)。架构、设计决策、测试和已脱敏的开发对话时间线见 [项目交接文档](docs/PROJECT_HISTORY.md)。
+构建产物为项目根目录的 `main.js`；发布者可运行 `python scripts/release_archive.py build` 生成并校验白名单 ZIP。包内采用 `docs/install/` 下的独立中英说明，不直接复制仓库 README；在线动效与文档链接固定到本版标签。安装到 Vault 的只需 `manifest.json`、`main.js`、`styles.css`。现成安装包请使用唯一的 [Release ZIP](releases/github-vault-sync-0.2.0.zip)。开发时先读[中英双语公开接手指南](PROJECT_CONTEXT.md#简体中文)，再按需读[公开脱敏开发历程](docs/PROJECT_HISTORY.md)中的决策和验证记录。本机 PROJECT、原始聊天和真实用户数据不公开。
 
 ## 安全提示
 

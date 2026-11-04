@@ -1,43 +1,23 @@
 # GitHub Vault Sync
 
-[简体中文](README.zh-CN.md)
+[English](README.md) · [简体中文](README.zh-CN.md)
 
-**v0.2.0 (2026-10-16):** adds non-blocking media optimization advice, a fifth settings page, guarded conversion commands with copy-all and synchronized copied states, AVIF Git LFS migration, and a guarded remote delete-and-recreate workflow. Download the single [v0.2.0 installation ZIP](releases/github-vault-sync-0.2.0.zip) and read the [release notes](docs/RELEASE_NOTES_v0.2.0.md). Native Windows Obsidian GUI acceptance remains deferred; see the [validation scope and known limits](docs/VALIDATION_v0.2.0.md).
+> **Preview first. Decide what syncs. Keep your notes in your own private repository.**
+>
+> An Obsidian desktop plugin for multi-device GitHub + Git LFS vault sync, with conflict review and optional encrypted settings backup. This **public source repository** is not a destination for your notes or credentials.
 
- · [Developer history](docs/PROJECT_HISTORY.md)
+[**Download v0.2.0 installation ZIP**](https://github.com/luoboruodai/github-vault-sync/releases/download/v0.2.0/github-vault-sync-0.2.0.zip) · [Install / upgrade guide](docs/install/README.md) · [Release notes](docs/RELEASE_NOTES_v0.2.0.md) · [Developer handoff](PROJECT_CONTEXT.md)
 
-**GitHub Vault Sync** is an Obsidian desktop plugin for synchronizing a vault with a **separate private GitHub repository**. This public repository contains only the plugin's source code and distributable releases. **Do not use this public repository for your notes or credentials.**
+**Requires:** Obsidian desktop 1.13.0+, Git, and Git LFS for matching attachments. Windows and macOS are supported; Linux desktop is also supported. Mobile is not supported. The published ZIP is a manual install; GitHub's automatic “Source code” archives are **not** installable plugins.
 
-## UI motion tour (v0.1.3)
+### Why use it?
 
-These short **illustrative UI-motion demos** use the plugin stylesheet and representative settings/preview markup with sample data. They show state changes, preview-first conflict review, and encrypted-settings boundaries; they are not recordings of a live Obsidian session and do not perform a sync. The approved videos are H.264 MP4 files at 1280×720 and 30 fps. On GitHub, use the direct MP4 links; Markdown viewers that allow HTML video may also show the inline player.
+- **Review before writing:** see notes, attachments, settings and other files in a read-only preview; choose a direction or resolve conflicts before confirming.
+- **Keep control:** periodic checks notify but never silently upload. Changes after preview invalidate the old approval.
+- **Protect sensitive settings:** exclude plaintext credentials and, when enabled, back up exceptional settings as an encrypted bundle in your **private** vault repository; store the recovery key separately.
+- **Plan media savings:** v0.2.0 suggests guarded, manual conversion commands; it does not convert files or change note links for you.
 
-### Status flow: local changes → remote check → preview → complete
-
-[Watch the status-flow MP4](docs/media/overview-b-status-flow.mp4) · 4.8s
-
-<video controls preload="metadata" width="720" style="max-width:100%;height:auto">
-  <source src="docs/media/overview-b-status-flow.mp4" type="video/mp4">
-  Video playback is not supported in this viewer; use the link above.
-</video>
-
-### Preview → choose → confirm
-
-[Watch the preview-flow MP4](docs/media/safe-sync-a-preview.mp4) · 7.2s
-
-<video controls preload="metadata" width="720" style="max-width:100%;height:auto">
-  <source src="docs/media/safe-sync-a-preview.mp4" type="video/mp4">
-  Video playback is not supported in this viewer; use the link above.
-</video>
-
-### Encrypted-settings boundary
-
-[Watch the encrypted-boundary MP4](docs/media/recovery-c-encrypted-boundary.mp4) · 4.8s
-
-<video controls preload="metadata" width="720" style="max-width:100%;height:auto">
-  <source src="docs/media/recovery-c-encrypted-boundary.mp4" type="video/mp4">
-  Video playback is not supported in this viewer; use the link above.
-</video>
+**Latest published software: v0.2.0 (October 16, 2026).** [Validation and limitations](docs/VALIDATION_v0.2.0.md) include deferred native Windows Obsidian GUI acceptance. Interface examples below use sample data rather than recordings of a real vault.
 
 ## Install the v0.2.0 release
 
@@ -96,6 +76,37 @@ On another desktop device, install this plugin, bind the same private repository
 
 The macOS/Windows CI runs TypeScript checks, temporary local Git/Git LFS integration tests, and a production build. **Release-tag CI also checks that the ZIP matches the built files; `main`/PR development builds do not require an unreleased ZIP.** This is not a Windows Obsidian GUI session or a guarantee for every third-party theme or Git installation. Separate macOS Obsidian 1.14.4 checks covered the running v0.2.0 version, five settings pages, media preview/copy interactions, safe settings migration, and read-only remote-rebuild confirmation gating. Native Windows Obsidian GUI acceptance remains deferred. See the [validation scope](docs/VALIDATION_v0.2.0.md); report host-specific issues with the Obsidian version, OS, and non-secret diagnostic details. No real vault or GitHub token is used in CI.
 
+## UI motion tour (v0.1.3)
+
+These v0.1.3 **illustrative UI-motion demos** use the plugin stylesheet and representative settings/preview markup with sample data. They show state changes, preview-first conflict review, and encrypted-settings boundaries; they are not recordings of a live Obsidian session and do not perform a sync. The approved videos are H.264 MP4 files at 1280×720 and 30 fps. On GitHub, use the direct MP4 links; viewers that allow HTML video may also show the inline player.
+
+### Status flow: local changes → remote check → preview → complete
+
+[Watch the status-flow MP4](docs/media/overview-b-status-flow.mp4) · 4.8s
+
+<video controls preload="metadata" width="720" style="max-width:100%;height:auto">
+  <source src="docs/media/overview-b-status-flow.mp4" type="video/mp4">
+  Video playback is not supported in this viewer; use the link above.
+</video>
+
+### Preview → choose → confirm
+
+[Watch the preview-flow MP4](docs/media/safe-sync-a-preview.mp4) · 7.2s
+
+<video controls preload="metadata" width="720" style="max-width:100%;height:auto">
+  <source src="docs/media/safe-sync-a-preview.mp4" type="video/mp4">
+  Video playback is not supported in this viewer; use the link above.
+</video>
+
+### Encrypted-settings boundary
+
+[Watch the encrypted-boundary MP4](docs/media/recovery-c-encrypted-boundary.mp4) · 4.8s
+
+<video controls preload="metadata" width="720" style="max-width:100%;height:auto">
+  <source src="docs/media/recovery-c-encrypted-boundary.mp4" type="video/mp4">
+  Video playback is not supported in this viewer; use the link above.
+</video>
+
 ## Build from source
 
 ```bash
@@ -105,7 +116,7 @@ pnpm test
 pnpm build
 ```
 
-The build creates `main.js` in the project root; release maintainers can run `python scripts/release_archive.py build` to create and verify the allowlisted ZIP. The ZIP uses the independent bilingual guides under `docs/install/`, not these repository READMEs; its online video/documentation links point to the release tag. Only `manifest.json`, `main.js`, and `styles.css` belong in an installed plugin folder. For the ready-to-install package use the single [release ZIP](releases/github-vault-sync-0.2.0.zip) instead. See [the developer handoff](docs/PROJECT_HISTORY.md) for architecture, design decisions, tests, and the public-safe development conversation timeline.
+The build creates `main.js` in the project root; release maintainers can run `python scripts/release_archive.py build` to create and verify the allowlisted ZIP. The ZIP uses the independent bilingual guides under `docs/install/`, not these repository READMEs; its online video/documentation links point to the release tag. Only `manifest.json`, `main.js`, and `styles.css` belong in an installed plugin folder. For the ready-to-install package use the single [release ZIP](releases/github-vault-sync-0.2.0.zip) instead. Start with [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md) for an English/Chinese, privacy-reviewed handoff; use the [public development history](docs/PROJECT_HISTORY.md) for decisions, testing notes and a summarized chronology. Private project notes and raw conversations are not published.
 
 ## Security note
 
