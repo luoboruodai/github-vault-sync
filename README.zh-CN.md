@@ -2,6 +2,8 @@
 
 [English](README.md) · [简体中文](README.zh-CN.md)
 
+[![桌面端 CI](https://github.com/luoboruodai/github-vault-sync/actions/workflows/ci.yml/badge.svg)](https://github.com/luoboruodai/github-vault-sync/actions/workflows/ci.yml) · [最新正式发行版：v0.2.0](https://github.com/luoboruodai/github-vault-sync/releases/tag/v0.2.0)
+
 > **先预览，再决定如何同步；笔记始终放在你自己的私有仓库。**
 >
 > 用 GitHub 和 Git LFS 跨设备同步 Obsidian 桌面端 Vault 的插件，支持冲突审阅及可选的加密配置备份。这个**公开源码仓库**不是笔记或凭据的存放地。
@@ -9,6 +11,10 @@
 [**下载 v0.2.0 安装 ZIP**](https://github.com/luoboruodai/github-vault-sync/releases/download/v0.2.0/github-vault-sync-0.2.0.zip) · [安装／升级指南](docs/install/README.zh-CN.md) · [发布说明](docs/RELEASE_NOTES_v0.2.0.md) · [开发接手指南](PROJECT_CONTEXT.md#简体中文)
 
 **运行条件：**Obsidian 桌面端 1.13.0+、Git；同步符合 LFS 规则的附件还需 Git LFS。支持 Windows 和 macOS，也支持 Linux 桌面端；不支持移动端。正式 ZIP 需要手动安装；GitHub 自动生成的 “Source code” 压缩包**不是**可安装插件。
+
+![先预览、再处理冲突、最后确认同步的示意流程；公开插件仓库与私有笔记仓库分离](docs/images/preview-first-workflow.svg)
+
+*概念流程图，不是真实 Vault 截图，也不代表自动上传。*
 
 ### 为什么使用它？
 
@@ -80,6 +86,10 @@ macOS／Windows CI 会运行 TypeScript 检查、临时本地 Git/Git LFS 集成
 
 以下是基于 v0.1.3 插件样式和代表性设置／预览结构、以示例数据制作的**界面动效演示**。它们展示状态变化、先预览再处理冲突，以及加密配置的边界；不是 Obsidian 实际运行录屏，也不会执行同步。已确认的视频均为 1280×720、30fps 的 H.264 MP4。GitHub 页面请使用下方 MP4 链接；支持 HTML 视频的阅读器也可以使用内嵌播放器。
 
+[![使用示意数据制作的 v0.1.3 同步预览弹窗，而非真实笔记库截图](docs/images/preview-demo-v0.1.3.png)](docs/media/safe-sync-a-preview.mp4)
+
+*截取自已确认的 v0.1.3 动效演示；点击图片观看 MP4，仅使用示意数据。*
+
 ### 状态流转：本地变化 → 读取远端 → 预览 → 完成
 
 [观看状态流转 MP4](docs/media/overview-b-status-flow.mp4) · 4.8 秒
@@ -106,6 +116,14 @@ macOS／Windows CI 会运行 TypeScript 检查、临时本地 Git/Git LFS 集成
   <source src="docs/media/recovery-c-encrypted-boundary.mp4" type="video/mp4">
   此阅读器不支持视频播放，请使用上方链接。
 </video>
+
+## 转发项目
+
+可使用[中英双语可转发简介](docs/SHARE.md#简体中文)及 v0.2.0 安装链接介绍项目。界面素材仅含示意数据；转发时不要附上自己的真实笔记库或凭据。
+
+## 参与开发与反馈
+
+先读[双语公开接手指南](PROJECT_CONTEXT.md#简体中文)和[公开开发历程](docs/PROJECT_HISTORY.md)，再运行下方类型检查、测试与构建。如需提交问题或改进建议，可通过 [Issues](https://github.com/luoboruodai/github-vault-sync/issues) 提供系统／Obsidian 版本、复现步骤及**已脱敏**的诊断信息。不要上传真实 Vault、凭据、恢复密钥或私有仓库内容。Windows 原生 Obsidian GUI 验收仍是后续值得补充的验证范围。
 
 ## 从源码构建
 

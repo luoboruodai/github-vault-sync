@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="352" viewBox="0 0 1200 352" role="img" aria-labelledby="title desc">
+  <title id="title">GitHub Vault Sync: preview, resolve, confirm</title>
+  <desc id="desc">Conceptual three-step workflow. Read-only preview of local and remote changes, choose conflict outcomes, then explicitly confirm sync to your private vault repository.</desc>
+  <rect width="1200" height="352" rx="20" fill="#f2f8f2"/>
+  <rect x="1" y="1" width="1198" height="350" rx="19" fill="none" stroke="#d4e3d4" stroke-width="2"/>
+  <rect x="36" y="32" width="5" height="51" rx="2.5" fill="#368c57"/>
+  <text x="57" y="46" fill="#43805b" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="700" letter-spacing="2">GITHUB VAULT SYNC</text>
+  <text x="55" y="81" fill="#172d20" font-family="Arial, Helvetica, sans-serif" font-size="32" font-weight="700">Your files. Your decision.</text>
+  <rect x="882" y="34" width="282" height="31" rx="15.5" fill="#e1f0e4"/>
+  <circle cx="903" cy="50" r="4" fill="#368c57"/>
+  <text x="916" y="54" fill="#286c42" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="700">PRIVATE VAULT REPOSITORY</text>
+  <text x="55" y="108" fill="#52695a" font-family="Arial, Helvetica, sans-serif" font-size="17">A visible checkpoint before every upload. No silent push.</text>
+
+  <rect x="36" y="138" width="350" height="161" rx="15" fill="#fff" stroke="#caddcd" stroke-width="1.5"/>
+  <rect x="55" y="156" width="38" height="31" rx="8" fill="#e7f2e8"/>
+  <text x="66" y="178" fill="#2b7a4c" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700">01</text>
+  <text x="105" y="178" fill="#21452e" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700" letter-spacing="1">PREVIEW</text>
+  <path d="M57 205 H364" stroke="#e6eee6"/>
+  <rect x="57" y="221" width="27" height="31" rx="4" fill="none" stroke="#66a177" stroke-width="2"/>
+  <path d="M64 230 H77 M64 237 H77 M64 244 H73" stroke="#66a177" stroke-width="2" stroke-linecap="round"/>
+  <text x="98" y="238" fill="#243c2d" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="600">Local ↔ remote changes</text>
+  <text x="98" y="266" fill="#637467" font-family="Arial, Helvetica, sans-serif" font-size="15">Inspect before applying vault changes</text>
+
+  <path d="M398 218 H413" stroke="#63a275" stroke-width="2" stroke-linecap="round"/>
+  <path d="M408 212 L415 218 L408 224" fill="none" stroke="#63a275" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="425" y="138" width="350" height="161" rx="15" fill="#fff" stroke="#caddcd" stroke-width="1.5"/>
+  <rect x="444" y="156" width="38" height="31" rx="8" fill="#e7f2e8"/>
+  <text x="455" y="178" fill="#2b7a4c" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700">02</text>
+  <text x="494" y="178" fill="#21452e" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700" letter-spacing="1">RESOLVE</text>
+  <path d="M446 205 H753" stroke="#e6eee6"/>
+  <path d="M448 227 L459 238 L475 221" fill="none" stroke="#66a177" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="487" y="238" fill="#243c2d" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="600">Choose the outcome</text>
+  <text x="487" y="266" fill="#637467" font-family="Arial, Helvetica, sans-serif" font-size="15">Notes, attachments and settings</text>
+
+  <path d="M787 218 H802" stroke="#63a275" stroke-width="2" stroke-linecap="round"/>
+  <path d="M797 212 L804 218 L797 224" fill="none" stroke="#63a275" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="814" y="138" width="350" height="161" rx="15" fill="#fff" stroke="#a7cdb0" stroke-width="1.5"/>
+  <rect x="833" y="156" width="38" height="31" rx="8" fill="#e1f0e4"/>
+  <text x="844" y="178" fill="#2b7a4c" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700">03</text>
+  <text x="883" y="178" fill="#21452e" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700" letter-spacing="1">CONFIRM</text>
+  <path d="M835 205 H1142" stroke="#e6eee6"/>
+  <circle cx="849" cy="237" r="15" fill="#e7f2e8"/>
+  <path d="M841 237 L847 243 L857 230" fill="none" stroke="#4e9862" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="876" y="238" fill="#243c2d" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="600">Explicit approval</text>
+  <text x="876" y="266" fill="#637467" font-family="Arial, Helvetica, sans-serif" font-size="15">Then Git + LFS sync</text>
+
+  <text x="55" y="329" fill="#52715c" font-family="Arial, Helvetica, sans-serif" font-size="14">PUBLIC PLUGIN CODE  ≠  YOUR PRIVATE NOTES</text>
+  <text x="1164" y="329" text-anchor="end" fill="#52715c" font-family="Arial, Helvetica, sans-serif" font-size="14">Conceptual flow · not a live vault screenshot</text>
+</svg>

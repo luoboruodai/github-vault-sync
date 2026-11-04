@@ -2,6 +2,8 @@
 
 [English](README.md) · [简体中文](README.zh-CN.md)
 
+[![Desktop CI](https://github.com/luoboruodai/github-vault-sync/actions/workflows/ci.yml/badge.svg)](https://github.com/luoboruodai/github-vault-sync/actions/workflows/ci.yml) · [Latest published release: v0.2.0](https://github.com/luoboruodai/github-vault-sync/releases/tag/v0.2.0)
+
 > **Preview first. Decide what syncs. Keep your notes in your own private repository.**
 >
 > An Obsidian desktop plugin for multi-device GitHub + Git LFS vault sync, with conflict review and optional encrypted settings backup. This **public source repository** is not a destination for your notes or credentials.
@@ -9,6 +11,10 @@
 [**Download v0.2.0 installation ZIP**](https://github.com/luoboruodai/github-vault-sync/releases/download/v0.2.0/github-vault-sync-0.2.0.zip) · [Install / upgrade guide](docs/install/README.md) · [Release notes](docs/RELEASE_NOTES_v0.2.0.md) · [Developer handoff](PROJECT_CONTEXT.md)
 
 **Requires:** Obsidian desktop 1.13.0+, Git, and Git LFS for matching attachments. Windows and macOS are supported; Linux desktop is also supported. Mobile is not supported. The published ZIP is a manual install; GitHub's automatic “Source code” archives are **not** installable plugins.
+
+![Illustrative preview–resolve–confirm workflow; the public plugin repository is separate from your private notes](docs/images/preview-first-workflow.svg)
+
+*Conceptual workflow, not a screenshot or an automatic upload.*
 
 ### Why use it?
 
@@ -80,6 +86,10 @@ The macOS/Windows CI runs TypeScript checks, temporary local Git/Git LFS integra
 
 These v0.1.3 **illustrative UI-motion demos** use the plugin stylesheet and representative settings/preview markup with sample data. They show state changes, preview-first conflict review, and encrypted-settings boundaries; they are not recordings of a live Obsidian session and do not perform a sync. The approved videos are H.264 MP4 files at 1280×720 and 30 fps. On GitHub, use the direct MP4 links; viewers that allow HTML video may also show the inline player.
 
+[![Illustrative v0.1.3 preview dialog with sample notes and files, not a live vault screenshot](docs/images/preview-demo-v0.1.3.png)](docs/media/safe-sync-a-preview.mp4)
+
+*Frame from the approved v0.1.3 motion demo; click to play the MP4. Sample data only.*
+
 ### Status flow: local changes → remote check → preview → complete
 
 [Watch the status-flow MP4](docs/media/overview-b-status-flow.mp4) · 4.8s
@@ -106,6 +116,14 @@ These v0.1.3 **illustrative UI-motion demos** use the plugin stylesheet and repr
   <source src="docs/media/recovery-c-encrypted-boundary.mp4" type="video/mp4">
   Video playback is not supported in this viewer; use the link above.
 </video>
+
+## Share this project
+
+A [short, bilingual project introduction](docs/SHARE.md) is available to share alongside the v0.2.0 installation link. Its interface media uses synthetic examples; do not publish your own vault or credentials when sharing the project.
+
+## Develop and contribute
+
+Start with the [public bilingual handoff](PROJECT_CONTEXT.md) and [development history](docs/PROJECT_HISTORY.md), then run the type check, tests and build below. Bug reports and patches are welcome through [Issues](https://github.com/luoboruodai/github-vault-sync/issues); include your OS and Obsidian version, reproduction steps, and **redacted** diagnostics. Never attach a real vault, credentials, recovery key or private repository data. Native Windows Obsidian GUI coverage remains a useful next validation target.
 
 ## Build from source
 
