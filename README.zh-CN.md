@@ -2,13 +2,13 @@
 
 [English](README.md) · [简体中文](README.zh-CN.md)
 
-[![桌面端 CI](https://github.com/luoboruodai/github-vault-sync/actions/workflows/ci.yml/badge.svg)](https://github.com/luoboruodai/github-vault-sync/actions/workflows/ci.yml) · [最新正式发行版：v0.2.0](https://github.com/luoboruodai/github-vault-sync/releases/tag/v0.2.0)
+[![桌面端 CI](https://github.com/luoboruodai/github-vault-sync/actions/workflows/ci.yml/badge.svg)](https://github.com/luoboruodai/github-vault-sync/actions/workflows/ci.yml) · [最新正式发行版：v0.2.1](https://github.com/luoboruodai/github-vault-sync/releases/tag/v0.2.1)
 
 > **先预览，再决定如何同步；笔记始终放在你自己的私有仓库。**
 >
 > 用 GitHub 和 Git LFS 跨设备同步 Obsidian 桌面端 Vault 的插件，支持冲突审阅及可选的加密配置备份。这个**公开源码仓库**不是笔记或凭据的存放地。
 
-[**下载 v0.2.0 安装 ZIP**](https://github.com/luoboruodai/github-vault-sync/releases/download/v0.2.0/github-vault-sync-0.2.0.zip) · [安装／升级指南](docs/install/README.zh-CN.md) · [发布说明](docs/RELEASE_NOTES_v0.2.0.md) · [开发接手指南](PROJECT_CONTEXT.md#简体中文)
+[**下载 v0.2.1 安装 ZIP**](https://github.com/luoboruodai/github-vault-sync/releases/download/v0.2.1/github-vault-sync-0.2.1.zip) · [安装／升级指南](docs/install/README.zh-CN.md) · [发布说明](docs/RELEASE_NOTES_v0.2.1.md) · [开发接手指南](PROJECT_CONTEXT.md#简体中文)
 
 **运行条件：**Obsidian 桌面端 1.13.0+、Git；同步符合 LFS 规则的附件还需 Git LFS。支持 Windows 和 macOS，也支持 Linux 桌面端；不支持移动端。正式 ZIP 需要手动安装；GitHub 自动生成的 “Source code” 压缩包**不是**可安装插件。
 
@@ -21,16 +21,17 @@
 - **上传前审阅：**先只读预览笔记、附件、配置及其他文件，再选方向或逐项处理冲突，明确确认后才执行。
 - **始终由你决定：**定时检查只提醒，绝不静默上传；预览后任一端发生变化会使旧授权失效。
 - **保护敏感配置：**禁止明文凭据提交；启用后可将特殊配置加密备份到**私有**笔记仓库，恢复密钥需另行保管。
-- **预先规划媒体体积：**v0.2.0 提供受保护的手动转换命令建议；不会自动转换文件或修改笔记链接。
+- **预先规划媒体体积：**v0.2.1 提供受保护的手动转换命令建议；不会自动转换文件或修改笔记链接。
+- **显式修复不安全文件名：**预览遇到 Windows 不兼容文件名时，v0.2.1 会先弹出确认；只有用户批准后才通过 Obsidian 重命名 API 修改文件并更新链接，同时检查重名并保存可回滚日志，再重新预览。
 
-**最新正式软件版本：v0.2.0（2026-10-16）。** [验证范围与限制](docs/VALIDATION_v0.2.0.md)包含尚未完成的 Windows 原生 Obsidian GUI 验收。下文界面演示使用示意数据，并非真实笔记库录屏。
+**最新正式软件版本：v0.2.1（2026-11-12）。** [验证范围与限制](docs/VALIDATION_v0.2.1.md)包含尚未完成的 Windows 原生 Obsidian GUI 验收。下文界面演示使用示意数据，并非真实笔记库录屏。
 
-## 安装 v0.2.0
+## 安装 v0.2.1
 
-v0.2.0 保留先预览再同步，加入媒体优化建议、五个独立设置页、更稳妥的批量复制交互，以及带多重确认的远程仓库重建流程。详见[更新说明](docs/RELEASE_NOTES_v0.2.0.md)与[独立安装／升级指南](docs/install/README.zh-CN.md)。
+v0.2.1 保留先预览再同步，加入经确认的 Windows 文件名修复流程。详见[更新说明](docs/RELEASE_NOTES_v0.2.1.md)与[独立安装／升级指南](docs/install/README.zh-CN.md)。
 
 1. 先备份 Obsidian Vault。安装 Git；如需同步图片、PDF 等符合附件规则的文件，另需安装 Git LFS。
-2. 打开本项目 GitHub 的 **Releases**，下载 `github-vault-sync-0.2.0.zip`。**唯一手动上传的 Release 资产**就是此 ZIP；仓库也保留同一份 [`releases/github-vault-sync-0.2.0.zip`](releases/github-vault-sync-0.2.0.zip)。GitHub 自动生成的“Source code (zip/tar.gz)”**不是可安装插件包**，因为项目根目录不收录构建后的 `main.js`。
+2. 打开本项目 GitHub 的 **Releases**，下载 `github-vault-sync-0.2.1.zip`。**唯一手动上传的 Release 资产**就是此 ZIP；仓库也保留同一份 [`releases/github-vault-sync-0.2.1.zip`](releases/github-vault-sync-0.2.1.zip)。GitHub 自动生成的“Source code (zip/tar.gz)”**不是可安装插件包**，因为项目根目录不收录构建后的 `main.js`。
 3. 保存笔记并正常退出 Obsidian，然后将 ZIP 解压到 `<Vault>/.obsidian/plugins/`，确认结果为：
 
    ```text
@@ -44,7 +45,7 @@ v0.2.0 保留先预览再同步，加入媒体优化建议、五个独立设置�
    不要多套一层 `github-vault-sync/`。ZIP 已含全部插件文件和双语安装说明；手动安装不用再单独下载 Release 资产，也无需 Node.js、pnpm。Git 及按附件规则需要的 Git LFS 仍是**系统层依赖**。安装包不含 Token、恢复密钥或个人笔记。
 4. 重新打开 Obsidian，在「设置 → 第三方插件」启用 **GitHub Vault Sync**。适用于 **Windows 和 macOS 的 Obsidian 桌面版 1.13.0+**（也支持 Linux 桌面版）；不支持移动端。Windows、macOS 使用同一个 ZIP。
 
-如果你当前已经安装标为 `0.4.0` 的本地原型，公开 `0.1.0` 才是**首次公开发行**；`0.2.0` 延续这一公开版本系列，不等同于内部 `0.4.0` 的版本降级或升级。无需仅为了下载公开包就替换正常运行的安装；手动替换前请备份 Vault，并保留本地的 `data.json`。
+如果你当前已经安装标为 `0.4.0` 的本地原型，公开 `0.1.0` 才是**首次公开发行**；`0.2.1` 延续这一公开版本系列，不等同于内部 `0.4.0` 的版本降级或升级。无需仅为了下载公开包就替换正常运行的安装；手动替换前请备份 Vault，并保留本地的 `data.json`。
 
 ## 连接自己的私有笔记仓库
 
@@ -60,13 +61,13 @@ v0.2.0 保留先预览再同步，加入媒体优化建议、五个独立设置�
 
 进度条在 Git 能报告文件／对象数量时显示阶段百分比；没有可靠上传计数时显示不确定进度，不假报进度。**及时检查**在本地改动后按设定延迟（默认 90 秒）检查，并每 5 分钟检查远端，**绝不绕过预览自动上传**。
 
-## 上传前媒体优化（v0.2.0）
+## 上传前媒体优化（v0.2.1）
 
-v0.2.0 在整库同步预览中列出超过阈值的已纳入 PNG/JPG/JPEG、PDF、MP4 和 GIF 文件。媒体建议**不会阻塞同步**，插件也不会执行转换。「媒体优化」设置页可调整阈值（默认 2 MB）、仅作用于建议的 glob 排除规则、图像 PSNR 质量下限（默认 35 dB），以及是否显示预估节省。
+v0.2.1 在整库同步预览中列出超过阈值的已纳入 PNG/JPG/JPEG、PDF、MP4 和 GIF 文件。媒体建议**不会阻塞同步**，插件也不会执行转换。「媒体优化」设置页可调整阈值（默认 2 MB）、仅作用于建议的 glob 排除规则、图像 PSNR 质量下限（默认 35 dB），以及是否显示预估节省。
 
 每个文件都提供「复制转换命令」，「一键复制全部转换命令」还会复制全部分页中的命令。批量复制成功后，当前按钮和后续加载的条目会同步显示复制状态；滚动到底部会自动追加 30 项并更新数量。请在 Vault 根目录的终端执行；Windows 使用 Git Bash。图像依赖 Pillow 和 `pillow-avif-plugin`，PDF 依赖 Ghostscript，MP4 需要含 `libsvtav1` 的 FFmpeg，GIF 需要含 `libwebp` 的 FFmpeg。PNG 从 AVIF q70、JPG 从 q60 开始，随后逐档尝试至 q100，直到达到设定的 PSNR 下限；仍不达标则不留下转换文件。已有目标不会被覆盖，输出重名时会追加短哈希。
 
-PDF 使用 Ghostscript `/ebook`，MP4 使用 AV1，GIF 生成动态 WebP。预估节省来自真实样本的投影系数，不保证单个文件的实际结果。有损替换不可逆：请保留冷备份，检查生成文件，自行更新笔记引用，再重新打开同步预览。AVIF 已加入默认 Git LFS 规则，并会在 0.2.0 之前的配置迁移时补充一次。
+PDF 使用 Ghostscript `/ebook`，MP4 使用 AV1，GIF 生成动态 WebP。预估节省来自真实样本的投影系数，不保证单个文件的实际结果。有损替换不可逆：请保留冷备份，检查生成文件，自行更新笔记引用，再重新打开同步预览。AVIF 已加入默认 Git LFS 规则，并会在 0.2.1 之前的配置迁移时补充一次。
 
 高级设置中另有「远程重建准备」清单。它只显示当前私有仓库及必须完成的冷备份、历史优化和第二设备暂停检查，不执行删除或重建。
 
@@ -80,7 +81,7 @@ PDF 使用 Ghostscript `/ebook`，MP4 使用 AV1，GIF 生成动态 WebP。预�
 
 ## 跨平台验证
 
-macOS／Windows CI 会运行 TypeScript 检查、临时本地 Git/Git LFS 集成测试和生产构建。**Release 标签 CI 还会核对 ZIP 与构建产物；`main`／PR 开发构建不要求提供未发布版本的 ZIP。**CI 不是 Windows 的 Obsidian 图形界面实机测试，也无法保证适配所有第三方主题或 Git 安装方式。本轮另在 macOS Obsidian 1.14.4 宿主验证 v0.2.0 运行版本、五个设置页、媒体预览／复制交互、配置安全迁移，以及不执行删除的远程重建确认门控；Windows 原生 Obsidian GUI 验收继续延期。详见[验证范围](docs/VALIDATION_v0.2.0.md)；遇到平台问题请提供系统、Obsidian 版本及不含密钥的诊断信息。CI 不接触真实笔记库或 GitHub Token。
+macOS／Windows CI 会运行 TypeScript 检查、临时本地 Git/Git LFS 集成测试和生产构建。**Release 标签 CI 还会核对 ZIP 与构建产物；`main`／PR 开发构建不要求提供未发布版本的 ZIP。**CI 不是 Windows 的 Obsidian 图形界面实机测试，也无法保证适配所有第三方主题或 Git 安装方式。本轮另在 macOS Obsidian 1.14.4 宿主验证 v0.2.1 运行版本、五个设置页、媒体预览／复制交互、配置安全迁移，以及不执行删除的远程重建确认门控；Windows 原生 Obsidian GUI 验收继续延期。详见[验证范围](docs/VALIDATION_v0.2.1.md)；遇到平台问题请提供系统、Obsidian 版本及不含密钥的诊断信息。CI 不接触真实笔记库或 GitHub Token。
 
 ## UI Motion 界面动效导览（v0.1.3）
 
@@ -119,7 +120,7 @@ macOS／Windows CI 会运行 TypeScript 检查、临时本地 Git/Git LFS 集成
 
 ## 转发项目
 
-可使用[中英双语可转发简介](docs/SHARE.md#简体中文)及 v0.2.0 安装链接介绍项目。界面素材仅含示意数据；转发时不要附上自己的真实笔记库或凭据。
+可使用[中英双语可转发简介](docs/SHARE.md#简体中文)及 v0.2.1 安装链接介绍项目。界面素材仅含示意数据；转发时不要附上自己的真实笔记库或凭据。
 
 ## 参与开发与反馈
 
@@ -134,7 +135,7 @@ pnpm test
 pnpm build
 ```
 
-构建产物为项目根目录的 `main.js`；发布者可运行 `python scripts/release_archive.py build` 生成并校验白名单 ZIP。包内采用 `docs/install/` 下的独立中英说明，不直接复制仓库 README；在线动效与文档链接固定到本版标签。安装到 Vault 的只需 `manifest.json`、`main.js`、`styles.css`。现成安装包请使用唯一的 [Release ZIP](releases/github-vault-sync-0.2.0.zip)。开发时先读[中英双语公开接手指南](PROJECT_CONTEXT.md#简体中文)，再按需读[公开脱敏开发历程](docs/PROJECT_HISTORY.md)中的决策和验证记录。本机 PROJECT、原始聊天和真实用户数据不公开。
+构建产物为项目根目录的 `main.js`；发布者可运行 `python scripts/release_archive.py build` 生成并校验白名单 ZIP。包内采用 `docs/install/` 下的独立中英说明，不直接复制仓库 README；在线动效与文档链接固定到本版标签。安装到 Vault 的只需 `manifest.json`、`main.js`、`styles.css`。现成安装包请使用唯一的 [Release ZIP](releases/github-vault-sync-0.2.1.zip)。开发时先读[中英双语公开接手指南](PROJECT_CONTEXT.md#简体中文)，再按需读[公开脱敏开发历程](docs/PROJECT_HISTORY.md)中的决策和验证记录。本机 PROJECT、原始聊天和真实用户数据不公开。
 
 ## 安全提示
 

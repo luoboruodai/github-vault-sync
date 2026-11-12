@@ -22,6 +22,7 @@ import { backupDataDirectory } from './platform-paths';
 import { isMarkdownNote } from './sync-preview';
 import { nextSettingsTab, SETTINGS_TABS, SettingsSection, showSettingsTab } from './settings-tabs';
 import { normalizeHttpProxy, normalizeSettings } from './settings';
+import { planWindowsPathRepairs, WindowsPathRepair } from './path-repair';
 import {
   ConflictChoice,
   DEFAULT_EXCLUDE_PATTERNS,
@@ -37,7 +38,7 @@ import {
   SyncSnapshot,
   VaultScan
 } from './types';
-import { formatBytes, formatDateTime, isLikelySensitivePath, isSafeRelativePath, matchesAnyPattern } from './utils';
+import { formatBytes, formatDateTime, isLikelySensitivePath, isSafeRelativePath, matchesAnyPattern, scanVault } from './utils';
 
 function vaultBasePath(app: App): string {
   const adapter = app.vault.adapter as unknown as { getBasePath?: () => string; basePath?: string };
@@ -269,6 +270,65 @@ export default class GithubVaultSyncPlugin extends Plugin {
     }
   }
 
+  async repairWindowsPaths(paths: readonly string[]): Promise<{ ok: boolean; count: number; log: string; message: string }> {
+    const plan = planWindowsPathRepairs(paths, (target) => Boolean(this.app.vault.getAbstractFileByPath(target)));
+    if (plan.errors.length) {
+      return { ok: false, count: 0, log: '', message: plan.errors.join('\n') };
+    }
+    const directory = path.join(backupDataDirectory(), 'path-repairs');
+    await fs.mkdir(directory, { recursive: true, mode: 0o700 });
+    if (process.platform !== 'win32') await fs.chmod(directory, 0o700);
+    const log = path.join(directory, `repair-${new Date().toISOString().replace(/[:.]/g, '-')}.json`);
+    const completed: WindowsPathRepair[] = [];
+    const saveLog = () => fs.writeFile(log, JSON.stringify({ repairs: completed }, null, 2), 'utf8');
+    try {
+      for (const repair of plan.repairs) {
+        const file = this.app.vault.getAbstractFileByPath(repair.from);
+        if (!(file instanceof TFile)) throw new Error(`Source file is missing: ${repair.from}`);
+        await this.app.fileManager.renameFile(file, repair.to);
+        completed.push(repair);
+        await saveLog();
+      }
+      const after = await scanVault(this.vaultPath, this.settings);
+      const remaining = after.errors.length + after.caseCollisions.length + after.windowsPathIssues.length;
+      if (remaining) {
+        return { ok: false, count: completed.length, log, message: `Rename completed, but ${remaining} unsafe path(s) remain. Review before syncing.` };
+      }
+      return { ok: true, count: completed.length, log, message: `已修复 ${completed.length} 个 Windows 不兼容路径。` };
+    } catch (error) {
+      const failed: WindowsPathRepair[] = [];
+      for (const repair of [...completed].reverse()) {
+        try {
+          const file = this.app.vault.getAbstractFileByPath(repair.to);
+          if (file && !this.app.vault.getAbstractFileByPath(repair.from)) await this.app.fileManager.renameFile(file, repair.from);
+          else failed.push(repair);
+        } catch {
+          failed.push(repair);
+        }
+      }
+      await saveLog();
+      const rollback = failed.length ? `Rollback incomplete for ${failed.length} file(s)` : 'Completed renames were restored';
+      return { ok: false, count: 0, log, message: `${error instanceof Error ? error.message : String(error)}; ${rollback}` };
+    }
+  }
+
+  private async offerWindowsPathRepair(error: unknown): Promise<boolean> {
+    const message = error instanceof Error ? error.message : String(error);
+    if (!message.startsWith('Windows-incompatible paths detected:')) return false;
+    const scan = await scanVault(this.vaultPath, this.settings);
+    if (!scan.windowsPathIssues.length) return false;
+    new WindowsPathRepairModal(this.app, scan.windowsPathIssues, async () => {
+      const result = await this.repairWindowsPaths(scan.windowsPathIssues);
+      if (!result.ok) {
+        new Notice(`路径修复未完成：${result.message}${result.log ? `；日志：${result.log}` : ''}`, 12000);
+        return;
+      }
+      new Notice(`${result.message} 正在生成同步预览。恢复日志：${result.log}`, 8000);
+      await this.syncNow();
+    }).open();
+    return true;
+  }
+
   private async startupCheck(): Promise<void> {
     await this.runAction('startup-check', () => this.engine.checkRemote(), false);
     const snapshot = this.engine.getSnapshot();
@@ -472,6 +532,7 @@ export default class GithubVaultSyncPlugin extends Plugin {
         if (result && 'ok' in result && result.ok) this.lastAutoAlert = '';
       }, async (file) => this.openNoteComparison(file, preview.remoteSha)).open();
     } catch (error) {
+      if (await this.offerWindowsPathRepair(error)) return;
       new Notice(`无法生成同步预览：${error instanceof Error ? error.message : String(error)}`, 10000);
     } finally {
       this.actionRunning = false;
@@ -1310,6 +1371,54 @@ class InitialBindingModal extends GithubVaultSyncModal {
     actions.addButton((button) => button.setButtonText(this.comparison.remoteExists ? '合并本机与仓库' : '从本机初始化私有仓库')
       .setCta().setDisabled(this.comparison.structuralConflicts.length > 0)
       .onClick(() => void this.submit('local')));
+  }
+
+  onClose(): void { this.contentEl.empty(); }
+}
+
+class WindowsPathRepairModal extends GithubVaultSyncModal {
+  private submitting = false;
+
+  constructor(app: App, private readonly issues: readonly string[], private readonly onSubmit: () => Promise<void>) {
+    super(app);
+  }
+
+  private async submit(): Promise<void> {
+    if (this.submitting) return;
+    this.submitting = true;
+    try {
+      await this.onSubmit();
+      this.close();
+    } finally {
+      this.submitting = false;
+    }
+  }
+
+  onOpen(): void {
+    const { contentEl } = this;
+    this.modalEl.addClass('github-vault-sync-note-modal');
+    contentEl.empty();
+    contentEl.createEl('h2', { text: '修复 Windows 不兼容文件名' });
+    contentEl.createEl('p', {
+      text: `检测到 ${this.issues.length} 个包含 Windows 禁止字符的文件。插件不会自动改名；确认后才会执行。`
+    });
+    contentEl.createEl('p', {
+      cls: 'setting-item-description',
+      text: '修复会将 ?、:、"、| 等字符替换为全角等价字符，并通过 Obsidian 更新笔记链接。执行前会检查重名，执行后会保存可回滚日志。'
+    });
+    const list = contentEl.createEl('details', { cls: 'github-vault-sync-initial-list' });
+    list.open = this.issues.length <= 20;
+    list.createEl('summary', { text: `待处理文件（${this.issues.length}）` });
+    const ul = list.createEl('ul');
+    for (const issue of this.issues.slice(0, 30)) ul.createEl('li', { text: issue });
+    if (this.issues.length > 30) ul.createEl('li', { text: `另外 ${this.issues.length - 30} 个…` });
+    contentEl.createEl('p', {
+      cls: 'github-vault-sync-hint',
+      text: '点击“修复并重新预览”只修改本机文件名和链接，不会上传或合并；随后仍会进入同步前确认。'
+    });
+    const actions = new Setting(contentEl).setClass('github-vault-sync-modal-actions');
+    actions.addButton((button) => button.setButtonText('取消，不修改').onClick(() => this.close()));
+    actions.addButton((button) => button.setButtonText('修复并重新预览').setCta().onClick(() => void this.submit()));
   }
 
   onClose(): void { this.contentEl.empty(); }
